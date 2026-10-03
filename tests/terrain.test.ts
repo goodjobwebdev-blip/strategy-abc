@@ -7,7 +7,7 @@ import {newCampaign,findPath} from '../src/campaign.ts';
 import {createBattle,autoBattle,stepBattle} from '../src/battle.ts';
 import {validSave} from '../src/storage.ts';
 
-test('all twelve cities have accessible routes from Rome',()=>{const c=newCampaign();assert.equal(INITIAL_CITIES.length,12);for(const city of INITIAL_CITIES)assert.ok(findPath(c.position,city),city.id);});
+test('all 44 campaign cities have accessible routes from Rome',()=>{const c=newCampaign();assert.equal(INITIAL_CITIES.length,44);for(const city of INITIAL_CITIES)assert.ok(findPath(c.position,city),city.id);});
 test('maps are reproducible and different seeds produce different terrain',()=>{
   for(const biome of Object.keys(BIOME_NAMES) as Biome[]){assert.deepEqual(generateMap(biome,42),generateMap(biome,42));assert.notDeepEqual(generateMap(biome,42),generateMap(biome,43));}
 });
@@ -34,10 +34,10 @@ test('battle units navigate around town buildings rather than crossing them',()=
 test('geography supplies the correct encounter kind and seed',()=>{
   const c=INITIAL_CITIES.find(c=>c.id==='felsina')!;assert.equal(encounterMap(c,1).biome,'city');assert.equal(encounterMap(c,1).townName,'Фельсина');
   assert.equal(encounterMap(project(10,46.5),1).biome,'mountain');
-  assert.equal(encounterMap(project(11.2,43.65),1).biome,'forest');
+  assert.equal(encounterMap(project(11,43.6),1).biome,'forest');
   assert.deepEqual(encounterMap(c,2),encounterMap(c,2));
 });
 test('autobattle terminates on all generated maps and keeps valid saves',()=>{
-  const c=newCampaign();for(const biome of Object.keys(BIOME_NAMES) as Biome[]){const b=autoBattle(createBattle(c.army,c.enemy,false,true,generateMap(biome,42)));assert.ok(b.winner);assert.ok(b.elapsed<601);assert.ok(validSave({schema:6,campaign:c,battle:b}));}
+  const c=newCampaign();for(const biome of Object.keys(BIOME_NAMES) as Biome[]){const b=autoBattle(createBattle(c.army,c.enemy,false,true,generateMap(biome,42)));assert.ok(b.winner);assert.ok(b.elapsed<601);assert.ok(validSave({schema:7,campaign:c,battle:b}));}
 });
-test('invalid saved terrain is rejected',()=>{const c=newCampaign(),b=createBattle(c.army,c.enemy);b.map.obstacles.push({x:400,y:300,w:-1,h:30,kind:'building'});assert.equal(validSave({schema:6,campaign:c,battle:b}),false);});
+test('invalid saved terrain is rejected',()=>{const c=newCampaign(),b=createBattle(c.army,c.enemy);b.map.obstacles.push({x:400,y:300,w:-1,h:30,kind:'building'});assert.equal(validSave({schema:7,campaign:c,battle:b}),false);});

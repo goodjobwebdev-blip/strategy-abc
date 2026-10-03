@@ -34,7 +34,7 @@ test('guard follows an ally, stays out of its footprint and saves its order',()=
  const b=createBattle([{id:'a',type:'infantry',men:80},{id:'z',type:'archers',men:60}],[{id:'e',type:'warband',men:90}]);b.phase='combat';b.map.relief.amplitude=0;b.map.forests=[];
  const [a,z,e]=b.units;a.x=400;a.y=700;z.x=700;z.y=700;e.x=2300;e.y=1300;issueOrder(a,{kind:'guard',target:z.id});
  for(let i=0;i<240;i++)stepBattle(b);assert.ok(a.x>700);assert.ok(contactGap(a,z)>=0);assert.equal(a.order.kind,'guard');
- assert.ok(validSave({schema:6,campaign:newCampaign(),battle:b}));z.routed=true;stepBattle(b);assert.equal(a.order.kind,'hold');
+ assert.ok(validSave({schema:7,campaign:newCampaign(),battle:b}));z.routed=true;stepBattle(b);assert.equal(a.order.kind,'hold');
 });
 test('skirmish mode withdraws from a visible approaching threat',()=>{
  const b=duel('archers'),[a,e]=b.units;a.x=650;a.y=800;a.angle=Math.PI;a.skirmish=true;e.x=750;e.y=800;

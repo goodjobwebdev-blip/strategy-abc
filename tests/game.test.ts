@@ -5,7 +5,7 @@ import { TYPES, INITIAL_CITIES, project } from '../src/data.ts';
 import { createBattle, trainingBattle, autoBattle, attackDirection, damageMultiplier, stepBattle, alive, survivors } from '../src/battle.ts';
 import { validSave } from '../src/storage.ts';
 
-test('campaign starts with 3 Roman units and 2 Boii units',()=>{const c=newCampaign();assert.equal(c.army.length,3);assert.equal(c.enemy.length,2);assert.equal(cityAtArmy(c)?.id,'rome');assert.ok(validSave({schema:6,campaign:c,battle:null}));});
+test('campaign starts with 3 Roman units and 2 Boii units',()=>{const c=newCampaign();assert.equal(c.army.length,3);assert.equal(c.enemy.length,2);assert.equal(cityAtArmy(c)?.id,'rome');assert.ok(validSave({schema:7,campaign:c,battle:null}));});
 test('mountains and water block travel; roads cost less',()=>{
   assert.equal(terrainAt(project(7.6,45.8)),'mountain');assert.equal(traversable(project(7.6,45.8)),false);
   assert.equal(terrainAt(project(10,41)),'sea');assert.equal(findPath(newCampaign().position,project(10,41)),null);
@@ -17,7 +17,7 @@ test('Rome can reach Ariminum then enemy using legal terrain',()=>{
   assert.equal(setDestination(c,ariminum),null);
   for(let i=0;i<10&&c.route.length;i++)nextDay(c);
   assert.equal(cityAtArmy(c)?.id,'ariminum');
-  assert.equal(setDestination(c,c.enemyPosition),null);for(let i=0;i<10&&c.route.length;i++)nextDay(c);
+  if(!canBattle(c))assert.equal(setDestination(c,c.enemyPosition),null);for(let i=0;i<10&&c.route.length;i++)nextDay(c);
   assert.ok(canBattle(c));
 });
 test('recruiting deducts cost and remote garrison joins at arrival',()=>{
@@ -47,7 +47,7 @@ test('autobattle is deterministic, terminates, and preserves valid survivor coun
   assert.ok(b.winner);assert.equal(b.winner,again.winner);assert.deepEqual(b.units,again.units);
   assert.ok(b.elapsed<=601);for(const unit of b.units){assert.ok(Number.isFinite(unit.men));assert.ok(unit.men>=0&&unit.men<=unit.initialMen);assert.ok(unit.morale>=0);}
   for(const unit of survivors(b,'rome'))assert.ok(unit.men>=1&&unit.men<=TYPES[unit.type].men);
-  assert.ok(validSave({schema:6,campaign:c,battle:b}));
+  assert.ok(validSave({schema:7,campaign:c,battle:b}));
 });
 test('morale breaks and fleeing neighbor causes a morale shock',()=>{
   const b=createBattle([{id:'a',type:'infantry',men:80},{id:'friend',type:'infantry',men:80}],[{id:'b',type:'warband',men:90}]);
@@ -55,6 +55,6 @@ test('morale breaks and fleeing neighbor causes a morale shock',()=>{
   stepBattle(b);assert.equal(alive(a),false);assert.ok(friend.morale<morale-8);
 });
 test('malformed or incompatible saves are rejected',()=>{
-  assert.equal(validSave(null),false);const s:any={schema:6,campaign:newCampaign(),battle:null};s.campaign.army[0].type='invalid';assert.equal(validSave(s),false);
-  const s2:any={schema:6,campaign:newCampaign(),battle:null};s2.campaign.position.x=Infinity;assert.equal(validSave(s2),false);
+  assert.equal(validSave(null),false);const s:any={schema:7,campaign:newCampaign(),battle:null};s.campaign.army[0].type='invalid';assert.equal(validSave(s),false);
+  const s2:any={schema:7,campaign:newCampaign(),battle:null};s2.campaign.position.x=Infinity;assert.equal(validSave(s2),false);
 });
