@@ -6,6 +6,8 @@ import { newCampaign, nextDay, recruit, setDestination, canBattle, distance, cit
 import { createBattle, trainingBattle, stepBattle, autoBattle, alive, survivors, losses, forestAt, hillAt, BATTLE_STEP } from './battle.js';
                                           
 import { MapScene } from './view.js';
+import { BIOME_NAMES, encounterMap, blocked, battlePath } from './terrain.js';
+                                          
 import { readSave, writeSave } from './storage.js';
 
 const save=readSave();
@@ -13,6 +15,7 @@ let campaign=save?.campaign??newCampaign();
 let battle            =save?.battle??null;
 let selectedUnit            =battle?.units.find(u=>u.side==='rome'&&alive(u))?.id??null;
 let selectedCity            ='rome';
+let trainingBiome      =battle?.map.biome??'plain',trainingSeed=battle?.map.seed??1337;
 let paused=true,speed=1,accumulator=0,uiTime=0,saveTime=0;
 let dialog                                        =null;
 let toast='',toastTimer                                        ;
@@ -20,8 +23,8 @@ let saveOK=true;
 const root=document.querySelector                ('#app') ;
 root.innerHTML=`
   <header class="masthead"><div class="brand"><span class="seal">SPQR</span><div><strong>STRATEGY ABC</strong><span>РИМ · СЕВЕРНАЯ ГРАНИЦА</span></div></div><div id="resources" class="resources"></div><button data-action="help" class="icon-button" aria-label="Открыть помощь">?</button></header>
-  <nav class="navigation"><div class="tabs"><button id="campaign-tab" data-action="campaign-tab">Кампания</button><button id="training-tab" data-action="training">Тактический полигон</button></div><div class="nav-right"><span class="version">MVP 0.1</span><button class="quiet" data-action="catalog">8 типов войск</button><button class="quiet" data-action="reset">Новая кампания</button></div></nav>
-  <main class="layout"><section class="map-column"><div class="map-heading"><div><span id="map-eyebrow" class="eyebrow"></span><h1 id="map-title"></h1></div><div id="map-tools"></div></div><div id="game" aria-label="Карта игры"></div><div id="map-caption" class="map-caption"></div><div id="bottom-panel"></div></section><aside id="sidebar" aria-label="Управление игрой"></aside></main>
+  <nav class="navigation"><div class="tabs"><button id="campaign-tab" data-action="campaign-tab">Кампания</button><button id="training-tab" data-action="training">Тактический полигон</button></div><div class="nav-right"><span class="version">MVP 0.2</span><button class="quiet" data-action="catalog">8 типов войск</button><button class="quiet" data-action="reset">Новая кампания</button></div></nav>
+  <main class="layout"><section class="map-column"><div class="map-heading"><div><span id="map-eyebrow" class="eyebrow"></span><h1 id="map-title"></h1></div><div id="map-tools"></div></div><div id="terrain-tools"></div><div id="game" aria-label="Карта игры"></div><div id="map-caption" class="map-caption"></div><div id="bottom-panel"></div></section><aside id="sidebar" aria-label="Управление игрой"></aside></main>
   <footer class="footer"><span id="save-status"></span><span>Условная кампания · III век до н. э.</span><a href="https://github.com/goodjobwebdev-blip/strategy-abc/blob/main/docs/premise.md" target="_blank" rel="noopener">Концепция ↗</a></footer>
   <div id="toast" role="status" aria-live="polite"></div><div id="modal"></div>`;
 const el=(id       )=>document.getElementById(id) ;
@@ -39,21 +42,22 @@ function render(){
   el('campaign-tab').classList.toggle('active',!battle);el('training-tab').classList.toggle('active',!!battle?.training);
   (el('campaign-tab')                     ).disabled=!!battle;
   (el('training-tab')                     ).disabled=!!battle;
-  el('map-eyebrow').textContent=battle?(battle.training?'ПОЛИГОН · ВСЕ ВОСЕМЬ ТИПОВ':'СРАЖЕНИЕ У ФЕЛЬСИНЫ'):'ГЛОБАЛЬНАЯ КАРТА · ИТАЛИЯ';
+  el('map-eyebrow').textContent=battle?(battle.training?'ПОЛИГОН · ВСЕ ВОСЕМЬ ТИПОВ':'СРАЖЕНИЕ У ФЕЛЬСИНЫ'):'СЕКТОР I · АПЕННИНСКИЙ ПОЛУОСТРОВ';
   el('map-title').textContent=battle?'Строй. Манёвр. Мораль.':'Северная граница';
+  el('terrain-tools').innerHTML=battle?.training?`<div class="terrain-toolbar"><label>Местность <select id="training-biome" ${paused?'':'disabled'}>${Object.entries(BIOME_NAMES).map(([key,name])=>`<option value="${key}" ${trainingBiome===key?'selected':''}>${name}</option>`).join('')}</select></label><label>Seed <input id="training-seed" type="number" min="0" max="4294967295" value="${trainingSeed}" ${paused?'':'disabled'}></label><button class="secondary" data-action="regenerate">Создать карту</button><span class="small muted">Новый бой на полигоне</span></div>`:'';
   if(battle)renderBattle();else renderCampaign();
   renderModal();
 }
 function renderCampaign(){
   el('map-tools').innerHTML=`<span class="map-badge">${campaign.won?'Победа в кампании':'Рим против бойев'}</span>`;
-  el('map-caption').innerHTML='<span><i class="dot roman"></i> Рим</span><span><i class="dot enemy"></i> Бойи</span><span>━ Дороги: движение ×1,92</span><span>▲ Горы и море: непроходимы</span>';
+  el('map-caption').innerHTML='<span><i class="dot roman"></i> Рим</span><span><i class="dot enemy"></i> Бойи</span><span>━ Дороги: движение ×1,92</span><span>▲ Горы · ♣ Леса · ≈ Реки</span>';
   el('bottom-panel').innerHTML=`<section class="panel army-panel"><div class="section-top"><h2>Полевая армия</h2><span class="muted">${campaign.army.length} / 16 отрядов</span></div>${roster()}</section>`;
   const city=campaign.cities.find(c=>c.id===selectedCity);
   const here=cityAtArmy(campaign);
   el('sidebar').innerHTML=`
     <section class="mission"><p class="eyebrow">${campaign.won?'КАМПАНИЯ ЗАВЕРШЕНА':'ВАША ЦЕЛЬ'}</p><h2>${campaign.won?'Северная граница под контролем':'Занять Фельсину'}</h2><p>${campaign.won?'Бойи отступили. Можно продолжить найм и движение или проверить все типы войск на полигоне.':'Проведи армию на север через Аримин и разбей два отряда бойев.'}</p></section>
     <section class="panel"><div class="section-top"><h2>Приказы армии</h2><span class="chip">${Math.round(campaign.movement)} / ${DAY_MOVEMENT}</span></div><p class="muted">${here?`У города ${esc(here.name)}`:'В походе'}${campaign.route.length?' · маршрут продолжается завтра':''}</p><div class="meter"><span style="width:${campaign.movement/DAY_MOVEMENT*100}%"></span></div><p class="small">Выбери город на карте и нажми «Марш». Для свободного движения нажми на сушу. Дорога через перевал ускоряет путь.</p><button class="primary full" data-action="next-day">Следующий день <span>→</span></button>${campaign.route.length?'<button class="quiet full" data-action="stop-march">Отменить маршрут</button>':''}</section>
-    ${canBattle(campaign)?`<section class="panel encounter"><p class="eyebrow">ПРОТИВНИК РЯДОМ</p><h2>Бойи · ${campaign.enemy.length} отряда</h2><p class="small">${campaign.enemy.map(u=>TYPES[u.type].name).join(' · ')}</p><button class="primary full" data-action="battle">Вести бой лично</button><button class="secondary full" data-action="autobattle">Автобой</button></section>`:''}
+    ${canBattle(campaign)?`<section class="panel encounter"><p class="eyebrow">ПРОТИВНИК РЯДОМ</p><h2>Бойи · ${campaign.enemy.length} отряда</h2><p class="small">Поле боя: ${BIOME_NAMES[encounterMap(campaign.enemyPosition,campaign.day).biome]}</p><p class="small">${campaign.enemy.map(u=>TYPES[u.type].name).join(' · ')}</p><button class="primary full" data-action="battle">Вести бой лично</button><button class="secondary full" data-action="autobattle">Автобой</button></section>`:''}
     <section class="panel"><p class="eyebrow">ГОРОД</p><div class="city-picker">${campaign.cities.map(c=>`<button class="${c.id===selectedCity?'active':''}" data-action="city" data-id="${c.id}">${c.name}</button>`).join('')}</div>${city?`<h2>${city.name} <small class="owner ${city.owner}">${city.owner==='rome'?'РИМ':'БОЙИ'}</small></h2><p class="small">${city.garrison.length?`Гарнизон: ${city.garrison.length} отр. крестьян`:'Гарнизон: нет отрядов'}${here?.id===city.id?' · армия здесь':''}</p>${city.owner==='rome'?`<button class="secondary full" data-action="recruit" data-id="${city.id}" ${campaign.gold<RECRUIT_COST?'disabled':''}>Нанять крестьян <span>35 ◈</span></button><p class="small muted">100 воинов. Присоединяются к армии в городе; иначе ждут в гарнизоне.</p>`:'<p class="small muted">Вражеский город. Победи армию бойев, чтобы занять его.</p>'}<button class="quiet full" data-action="march-city" data-id="${city.id}" ${here?.id===city.id?'disabled':''}>Марш к городу →</button>`:''}</section>
     <section class="panel journal"><h2>Хроника</h2>${campaign.notices.slice(0,4).map(n=>`<p>${esc(n)}</p>`).join('')}</section>`;
 }
@@ -62,11 +66,11 @@ function renderBattle(){
   const live=(side       )=>b.units.filter(v=>v.side===side&&alive(v)).length;
   const seconds=Math.floor(b.elapsed),clock=`${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`;
   el('map-tools').innerHTML=`<span class="battle-clock">${clock}</span><button class="secondary" data-action="pause" ${b.winner?'disabled':''}>${paused?'▶ Начать / продолжить':'Ⅱ Пауза'}</button>`;
-  el('map-caption').innerHTML='<span><i class="dot roman"></i> Твои отряды</span><span><i class="dot enemy"></i> Противник</span><span>Полоска: мораль · стрелка: фронт</span>';
+  el('map-caption').innerHTML=`<span><i class="dot roman"></i> Твои отряды</span><span><i class="dot enemy"></i> Противник</span><span>${BIOME_NAMES[b.map.biome]} · seed ${b.map.seed}</span><span>Здания и скалы блокируют движение и обстрел</span>`;
   el('bottom-panel').innerHTML=`<section class="panel army-panel"><div class="section-top"><h2>Твои отряды</h2><span class="muted">Боеспособны: ${live('rome')} · враг: ${live('boii')}</span></div>${roster()}</section>`;
   el('sidebar').innerHTML=`<section class="mission"><p class="eyebrow">${paused?'ТАКТИЧЕСКАЯ ПАУЗА':'СРАЖЕНИЕ ИДЁТ'}</p><h2>${b.training?'Тактический полигон':'Сражение у Фельсины'}</h2><p>Выбери свой отряд, нажми на землю для движения или на врага для атаки. Shift + нажатие задаёт направление фронта.</p></section>
     <section class="panel"><div class="section-top"><h2>Время</h2><span class="chip">${clock}</span></div><div class="speed-controls">${[1,2,4].map(s=>`<button class="${speed===s?'active':''}" data-action="speed" data-speed="${s}">${s}×</button>`).join('')}</div><p class="small muted">Пробел — пауза. Приказы можно отдавать на паузе.</p><button class="primary full" data-action="advance-all" ${b.winner?'disabled':''}>Всем наступать</button><button class="quiet full" data-action="hold-all" ${b.winner?'disabled':''}>Всем удерживать позицию</button></section>
-    <section class="panel"><p class="eyebrow">ВЫБРАННЫЙ ОТРЯД</p>${u?`<h2>${TYPES[u.type].name}</h2><p class="small muted">${TYPES[u.type].description}</p><div class="unit-stats"><span>Воинов <b>${Math.ceil(u.men)} / ${u.initialMen}</b></span><span>Мораль <b>${Math.round(u.morale)} / 100</b></span><span>Усталость <b>${Math.round(u.fatigue*100)}%</b></span><span>Строй <b>${Math.round(u.cohesion*100)}%</b></span></div><p class="small">${u.routed?'Бегство — приказы недоступны':u.order.kind==='hold'?'Удерживает позицию':u.order.kind==='move'?'Выполняет движение':'Атакует противника'} · ${forestAt(u)?'лес':hillAt(u)?'холм':'равнина'}</p><button class="secondary full" data-action="hold" ${!alive(u)||b.winner?'disabled':''}>Удерживать позицию</button><button class="quiet full" data-action="withdraw-unit" ${!alive(u)||b.winner?'disabled':''}>Отвести отряд</button>`:'<p class="muted">Выбери отряд на карте или в списке.</p>'}</section>
+    <section class="panel"><p class="eyebrow">ВЫБРАННЫЙ ОТРЯД</p>${u?`<h2>${TYPES[u.type].name}</h2><p class="small muted">${TYPES[u.type].description}</p><div class="unit-stats"><span>Воинов <b>${Math.ceil(u.men)} / ${u.initialMen}</b></span><span>Мораль <b>${Math.round(u.morale)} / 100</b></span><span>Усталость <b>${Math.round(u.fatigue*100)}%</b></span><span>Строй <b>${Math.round(u.cohesion*100)}%</b></span></div><p class="small">${u.routed?'Бегство — приказы недоступны':u.order.kind==='hold'?'Удерживает позицию':u.order.kind==='move'?'Выполняет движение':'Атакует противника'} · ${forestAt(u,b.map)?'лес':hillAt(u,b.map)?'возвышенность':'равнина'}</p><button class="secondary full" data-action="hold" ${!alive(u)||b.winner?'disabled':''}>Удерживать позицию</button><button class="quiet full" data-action="withdraw-unit" ${!alive(u)||b.winner?'disabled':''}>Отвести отряд</button>`:'<p class="muted">Выбери отряд на карте или в списке.</p>'}</section>
     <section class="panel journal"><h2>События боя</h2>${b.logs.slice(0,5).map(l=>`<p>${esc(l)}</p>`).join('')}</section>
     <button class="quiet full retreat" data-action="retreat">${b.training?'Выйти из полигона':'Отступить всей армией'}</button>`;
 }
@@ -78,7 +82,7 @@ function renderModal(){
   }
   if(!dialog){container.innerHTML='';return;}
   let title='',body='';
-  if(dialog==='help'){title='Как играть';body=`<ol><li>В Риме уже есть три отряда. Можно нанять крестьян за 35 денариев.</li><li>Выбери Аримин и нажми «Марш к городу». Армия идёт по дороге; «Следующий день» продолжает маршрут и приносит доход.</li><li>От Аримина двигайся к Фельсине. Рядом с врагом появится выбор ручного боя или автобоя.</li><li>В бою выбери отряд → землю для движения → противника для атаки. Shift + нажатие поворачивает фронт. Пробел ставит бой на паузу.</li><li>Обходи кавалерией, прикрывай стрелков, удерживай строй. Бегство соседей снижает мораль. Лес мешает коннице, холм даёт преимущество.</li></ol><p>На тактическом полигоне доступны все восемь типов войск. Он не влияет на кампанию.</p><p class="small muted">Сохранение автоматическое и локальное. После перезагрузки незаконченный бой продолжится на паузе. Карта схематична; сценарий не воспроизводит конкретную историческую битву.</p>`;}
+  if(dialog==='help'){title='Как играть';body=`<ol><li>В Риме уже есть три отряда. Можно нанять крестьян за 35 денариев.</li><li>Выбери Аримин и нажми «Марш к городу». Армия идёт по дороге; «Следующий день» продолжает маршрут и приносит доход.</li><li>От Аримина двигайся к Фельсине. Рядом с врагом появится выбор ручного боя или автобоя.</li><li>В бою выбери отряд → землю для движения → противника для атаки. Shift + нажатие поворачивает фронт. Пробел ставит бой на паузу.</li><li>Обходи кавалерией, прикрывай стрелков, удерживай строй. Бегство соседей снижает мораль. Лес мешает коннице, холм даёт преимущество.</li></ol><p>На тактическом полигоне доступны все восемь типов войск. Он не влияет на кампанию.</p><p class="small muted">Сохранение автоматическое и локальное. После перезагрузки незаконченный бой продолжится на паузе. Береговая линия реальная; дороги и ландшафт — игровая модель. Полигон позволяет выбрать лес, равнину, горы или город и seed карты.</p>`;}
   if(dialog==='catalog'){title='Восемь типов войск';body=`<div class="catalog">${TYPE_ORDER.map(t=>`<article><span class="unit-icon">${TYPES[t].icon}</span><div><h3>${TYPES[t].name}</h3><p>${TYPES[t].description}</p><small>${TYPES[t].men} воинов · мораль ${TYPES[t].morale} · ${TYPES[t].range>50?'дальний':'ближний'} бой</small></div></article>`).join('')}</div>`;}
   if(dialog==='reset'){title='Начать новую кампанию?';body='<p>Текущая кампания и незавершённый бой будут заменены. Рим снова начнёт с трёх отрядов.</p><button class="primary full" data-action="confirm-reset">Начать заново</button>';}
   if(dialog==='retreat'){title='Приказать отступление?';body='<p>Бой завершится поражением. Выжившие вернутся в Рим с текущими потерями.</p><button class="primary full" data-action="confirm-retreat">Отступить</button>';}
@@ -87,7 +91,7 @@ function renderModal(){
 function nearestEnemy(u                                ){return battle?.units.filter(v=>v.side!==u.side&&alive(v)).sort((a,b)=>distance(u,a)-distance(u,b))[0];}
 function startBattle(training=false,automatic=false){
   if(battle)return;if(!training&&!canBattle(campaign)){showToast('Сначала подойди к армии бойев у Фельсины.');return;}
-  battle=training?trainingBattle():createBattle(campaign.army,campaign.enemy,false,automatic);
+  battle=training?trainingBattle(trainingBiome,trainingSeed):createBattle(campaign.army,campaign.enemy,false,automatic,encounterMap(campaign.enemyPosition,campaign.day));
   selectedUnit=battle.units.find(u=>u.side==='rome') .id;paused=true;speed=1;accumulator=0;
   if(automatic){autoBattle(battle);}
   persist();render();
@@ -122,6 +126,7 @@ function onMap(p      ,shift        ){
   const hit=battle.units.filter(u=>u.men>=1&&distance(u,p)<30).sort((a,b)=>distance(a,p)-distance(b,p))[0];
   if(hit?.side==='rome'){selectedUnit=hit.id;render();return;}
   if(!selected||!alive(selected)){showToast('Выбери боеспособный римский отряд.');return;}
+  if((!hit||!alive(hit))&&(blocked(p,battle.map)||!battlePath(selected,p,battle.map))){showToast('Нет прохода: выбери улицу, поляну или горный перевал.');return;}
   selected.order=hit&&alive(hit)?{kind:'attack',target:hit.id}:{kind:'move',x:Math.max(30,Math.min(970,p.x)),y:Math.max(35,Math.min(610,p.y))};
   persist();render();
 }
@@ -132,6 +137,7 @@ root.addEventListener('click',event=>{
   if(action==='close'){dialog=null;render();return;}
   if(action==='confirm-reset'){campaign=newCampaign();battle=null;selectedCity='rome';selectedUnit=null;dialog=null;paused=true;persist();render();return;}
   if(action==='training'){startBattle(true);return;}
+  if(action==='regenerate'&&battle?.training){const biome=(el('training-biome')                     ).value         ;const seed=Number((el('training-seed')                    ).value);if(!Number.isInteger(seed)||seed<0||seed>4294967295){showToast('Seed должен быть целым числом от 0 до 4294967295.');return;}trainingBiome=biome;trainingSeed=seed;battle=trainingBattle(biome,seed);selectedUnit=battle.units[0].id;paused=true;accumulator=0;persist();render();return;}
   if(action==='finish'){finishBattle();return;}
   if(action==='retreat'){if(battle?.training){finishBattle();return;}paused=true;dialog='retreat';render();return;}
   if(action==='confirm-retreat'&&battle){battle.winner='boii';battle.reason='Римский командующий приказал отступить.';dialog=null;persist();render();return;}
@@ -162,7 +168,7 @@ document.addEventListener('keydown',event=>{
 });
 function tick(delta       ){
   if(battle&&!paused&&!dialog&&!battle.winner){accumulator+=delta*speed;let steps=0;while(accumulator>=BATTLE_STEP&&steps<12){stepBattle(battle);accumulator-=BATTLE_STEP;steps++;if(battle.winner){paused=true;persist();render();break;}}}
-  uiTime+=delta;saveTime+=delta;if(uiTime>.5){uiTime=0;if(battle&&!dialog&&!battle.winner)render();}if(saveTime>3){saveTime=0;persist();}
+  uiTime+=delta;saveTime+=delta;if(uiTime>.5){uiTime=0;if(battle&&!paused&&!dialog&&!battle.winner)render();}if(saveTime>3){saveTime=0;persist();}
 }
 const scene=new MapScene(()=>({campaign,battle,selectedUnit,selectedCity}),onMap,tick);
 new Phaser.Game({type:Phaser.AUTO,parent:'game',width:1000,height:650,backgroundColor:'#e2dbc1',scene:[scene],scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},render:{antialias:true},audio:{noAudio:true}});

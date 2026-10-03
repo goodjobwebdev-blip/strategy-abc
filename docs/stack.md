@@ -47,3 +47,7 @@ GitHub Pages публикует записанные в main статическ�
 - [Установка и определения TypeScript](https://docs.phaser.io/phaser/getting-started/installation)
 - [Phaser 3.90.0: исходная поставка](https://github.com/phaserjs/phaser/tree/v3.90.0)
 - [Статическая публикация Vite](https://vite.dev/guide/static-deploy)
+
+## Обновление 0.2
+
+Географические контуры находятся в geography.ts, игровые города и проекция — в data.ts. terrain.ts создаёт детерминированный BattleMap и рассчитывает высоту, лес, препятствия, видимость и локальный поиск пути. Объект карты хранится внутри Battle и сохраняется целиком; schema 2 мигрирует старые сохранения. Подробнее: [terrain.md](terrain.md).

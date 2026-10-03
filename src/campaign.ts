@@ -1,4 +1,4 @@
-import { INITIAL_CITIES, LAND, MOUNTAINS, ROADS, TYPES } from './data.ts';
+import { INITIAL_CITIES, PLAYABLE_LAND, MOUNTAINS, ROADS, TYPES } from './data.ts';
 import type { Point, ArmyUnit, City } from './data.ts';
 export interface Campaign { version: 1; day: number; gold: number; army: ArmyUnit[]; position: Point; route: Point[]; movement: number; cities: City[]; enemy: ArmyUnit[]; enemyPosition: Point; won: boolean; serial: number; notices: string[] }
 export const DAY_MOVEMENT = 70;
@@ -20,7 +20,7 @@ export function segmentDistance(p: Point, a: Point, b: Point) {
 }
 export function onRoad(p: Point) { return ROADS.some(r=>r.slice(1).some((b,i)=>segmentDistance(p,r[i],b)<12)); }
 export function terrainAt(p: Point): 'sea' | 'mountain' | 'road' | 'plain' {
-  if (!LAND.some(poly=>inPolygon(p,poly))) return 'sea';
+  if (!PLAYABLE_LAND.some(poly=>inPolygon(p,poly))) return 'sea';
   if (onRoad(p)) return 'road';
   if (MOUNTAINS.some(poly=>inPolygon(p,poly))) return 'mountain';
   return 'plain';
@@ -35,11 +35,11 @@ function clearSegment(a: Point,b: Point) {
 // A* on a 10 px grid, including diagonal corner checks. Roads affect route cost.
 export function findPath(start: Point,goal: Point): Point[] | null {
   if(!traversable(start)||!traversable(goal)) return null;
-  const size=10,cols=101,rows=66;
+  const size=5,cols=201,rows=131;
   const index=(p:Point)=>Math.round(p.y/size)*cols+Math.round(p.x/size);
   const point=(i:number)=>({x:(i%cols)*size,y:Math.floor(i/cols)*size});
-  const first=index(start),last=index(goal);
-  if(!clearSegment(start,point(first))||!clearSegment(point(last),goal)) return null;
+  const nearest=(p:Point)=>{let best=-1,min=Infinity;for(let dx=-3;dx<=3;dx++)for(let dy=-3;dy<=3;dy++){const x=Math.round(p.x/size)+dx,y=Math.round(p.y/size)+dy;if(x<0||x>=cols||y<0||y>=rows)continue;const id=y*cols+x,q=point(id),d=distance(p,q);if(d<min&&clearSegment(p,q)){min=d;best=id;}}return best;};
+  const first=nearest(start),last=nearest(goal);if(first<0||last<0)return null;
   const open=new Set([first]),closed=new Set<number>();
   const g=new Map<number,number>([[first,0]]),came=new Map<number,number>();
   while(open.size) {
@@ -63,7 +63,8 @@ export function findPath(start: Point,goal: Point): Point[] | null {
   return null;
 }
 export function newCampaign(): Campaign {
-  return {version:1,day:1,gold:140,army:[{id:'r1',type:'infantry',men:80},{id:'r2',type:'spears',men:80},{id:'r3',type:'lightCavalry',men:40}],position:{x:512,y:360},route:[],movement:DAY_MOVEMENT,cities:structuredClone(INITIAL_CITIES),enemy:[{id:'b1',type:'warband',men:90},{id:'b2',type:'archers',men:60}],enemyPosition:{x:472,y:190},won:false,serial:3,notices:['Северная граница неспокойна. Бойи удерживают Фельсину.']};
+  const rome=INITIAL_CITIES.find(c=>c.id==='rome')!,enemy=INITIAL_CITIES.find(c=>c.id==='felsina')!;
+  return {version:1,day:1,gold:140,army:[{id:'r1',type:'infantry',men:80},{id:'r2',type:'spears',men:80},{id:'r3',type:'lightCavalry',men:40}],position:{x:rome.x,y:rome.y},route:[],movement:DAY_MOVEMENT,cities:structuredClone(INITIAL_CITIES),enemy:[{id:'b1',type:'warband',men:90},{id:'b2',type:'archers',men:60}],enemyPosition:{x:enemy.x,y:enemy.y},won:false,serial:3,notices:['Северная граница неспокойна. Бойи удерживают Фельсину.']};
 }
 export function notice(c:Campaign,text:string){c.notices.unshift(text);c.notices=c.notices.slice(0,8);}
 export function cityAtArmy(c:Campaign) { return c.cities.find(city=>distance(c.position,city)<22); }

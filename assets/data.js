@@ -1,3 +1,4 @@
+import { GEO_COUNTRIES } from './geography.js';
                                              
                                                                                                                                     
                                    
@@ -15,29 +16,42 @@ export const TYPES                                   = {
 export const TYPE_ORDER = Object.keys(TYPES)              ;
                                                                      
                                                                                                                           
-export const INITIAL_CITIES         = [
-  { id: 'rome', name: 'Рим', latin: 'ROMA', x: 512, y: 360, owner: 'rome', garrison: [] },
-  { id: 'capua', name: 'Капуя', latin: 'CAPUA', x: 576, y: 448, owner: 'rome', garrison: [] },
-  { id: 'ariminum', name: 'Аримин', latin: 'ARIMINUM', x: 541, y: 244, owner: 'rome', garrison: [] },
-  { id: 'felsina', name: 'Фельсина', latin: 'FELSINA', x: 472, y: 190, owner: 'boii', garrison: [] }
+export const project = (lon       ,lat       )       => ({x:150+(lon-6)*44,y:25+(47.1-lat)*60});
+export const unproject = (p      ) => ({lon:6+(p.x-150)/44,lat:47.1-(p.y-25)/60});
+export const WORLD_COUNTRIES = GEO_COUNTRIES.map(c=>({name:c.name,polygons:c.polygons.filter(r=>r.some(([lon,lat])=>lon>5&&lon<24&&lat>36&&lat<48)).map(r=>r.map(([lon,lat])=>project(lon,lat)))}));
+export const LAND           = WORLD_COUNTRIES.flatMap(c=>c.polygons);
+export const ITALY = WORLD_COUNTRIES.find(c=>c.name==='Italy') .polygons;
+export const PLAYABLE_LAND = [ITALY.reduce((a,b)=>a.length>b.length?a:b)];
+const city = (id       ,name       ,latin       ,lon       ,lat       ,owner     ='rome')     =>({id,name,latin,...project(lon,lat),owner,garrison:[]});
+export const INITIAL_CITIES        = [
+ city('rome','Рим','ROMA',12.496,41.903),city('capua','Капуя','CAPUA',14.212,41.106),
+ city('ariminum','Аримин','ARIMINUM',12.568,44.059),city('felsina','Фельсина','FELSINA',11.342,44.494,'boii'),
+ city('arretium','Арреций','ARRETIUM',11.882,43.464),city('perusia','Перузия','PERUSIA',12.389,43.111),
+ city('narnia','Нарния','NARNIA',12.515,42.517),city('ancona','Анкона','ANCONA',13.47,43.59),
+ city('neapolis','Неаполь','NEAPOLIS',14.245,40.863),city('venusia','Венузия','VENUSIA',15.817,40.962),
+ city('tarentum','Тарент','TARENTUM',17.23,40.49),city('brundisium','Брундизий','BRUNDISIUM',17.94,40.65)
 ];
-// Schematic coastline: scenario geography, not a geographical projection.
-export const LAND            = [
-  [{x:0,y:0},{x:1000,y:0},{x:1000,y:135},{x:893,y:146},{x:850,y:220},{x:801,y:251},{x:780,y:329},{x:820,y:351},{x:824,y:390},{x:775,y:401},{x:728,y:321},{x:687,y:252},{x:590,y:210},{x:550,y:193},{x:568,y:260},{x:596,y:316},{x:624,y:391},{x:698,y:443},{x:693,y:470},{x:644,y:467},{x:625,y:502},{x:648,y:528},{x:624,y:547},{x:595,y:520},{x:570,y:471},{x:523,y:422},{x:483,y:380},{x:452,y:314},{x:426,y:257},{x:405,y:207},{x:360,y:205},{x:280,y:245},{x:255,y:314},{x:211,y:335},{x:134,y:318},{x:104,y:364},{x:32,y:365},{x:0,y:338}],
-  [{x:0,y:487},{x:147,y:472},{x:284,y:499},{x:372,y:527},{x:463,y:564},{x:567,y:555},{x:708,y:579},{x:833,y:563},{x:920,y:523},{x:1000,y:508},{x:1000,y:650},{x:0,y:650}],
-  [{x:374,y:308},{x:394,y:314},{x:401,y:357},{x:385,y:368},{x:371,y:344}],
-  [{x:363,y:385},{x:399,y:380},{x:411,y:440},{x:390,y:460},{x:366,y:438}],
-  [{x:505,y:524},{x:557,y:515},{x:599,y:552},{x:571,y:564},{x:523,y:552}]
+const geoLine=(points           )=>points.map(([lon,lat])=>project(lon,lat));
+function ribbon(points        ,width       )        {
+ const left        =[],right        =[];
+ points.forEach((p,i)=>{const a=points[Math.max(0,i-1)],b=points[Math.min(points.length-1,i+1)],angle=Math.atan2(b.y-a.y,b.x-a.x)+Math.PI/2;left.push({x:p.x+Math.cos(angle)*width,y:p.y+Math.sin(angle)*width});right.push({x:p.x-Math.cos(angle)*width,y:p.y-Math.sin(angle)*width});});return [...left,...right.reverse()];
+}
+export const RIDGES = [geoLine([[7,44.3],[7.15,45.2],[8,46],[9.5,46.5],[11.2,46.7],[13,46.45]]),geoLine([[8.7,44.35],[10,44.4],[11,44],[12.15,43.25],[13.3,42.35],[14.35,41.65],[15.45,40.35],[16.1,39.2],[16.1,38.25]])];
+export const MOUNTAINS           = RIDGES.map((r,i)=>ribbon(r,i===0?16:12));
+const town=(id       )=>INITIAL_CITIES.find(c=>c.id===id) ;
+export const ROADS           = [
+ [town('rome'),town('narnia'),...geoLine([[12.55,43.05],[12.72,43.5]]),town('ariminum')],
+ [town('ariminum'),...geoLine([[12.1,44.2],[11.7,44.37]]),town('felsina')],
+ [town('rome'),...geoLine([[13,41.7],[13.7,41.42]]),town('capua'),town('neapolis')],
+ [town('narnia'),town('perusia'),town('arretium'),...geoLine([[11.25,43.9],[11.32,44.15]]),town('felsina')],
+ [town('ariminum'),...geoLine([[12.9,43.83]]),town('ancona')],
+ [town('capua'),...geoLine([[14.75,41.2]]),town('venusia'),...geoLine([[16.5,40.7]]),town('tarentum'),town('brundisium')]
 ];
-export const MOUNTAINS            = [
-  [{x:321,y:140},{x:358,y:99},{x:451,y:86},{x:543,y:108},{x:590,y:148},{x:563,y:173},{x:462,y:132},{x:393,y:154}],
-  [{x:443,y:258},{x:470,y:239},{x:500,y:280},{x:523,y:329},{x:535,y:351},{x:523,y:370},{x:501,y:348},{x:479,y:303}],
-  [{x:538,y:384},{x:555,y:380},{x:582,y:418},{x:604,y:459},{x:589,y:473},{x:565,y:429}]
+export const WORLD_FORESTS = [
+ {...project(11.2,43.65),rx:28,ry:35},{...project(12.2,43.1),rx:25,ry:43},
+ {...project(13.55,42.2),rx:27,ry:35},{...project(15.5,40.4),rx:22,ry:38},
+ {...project(9.6,44.5),rx:30,ry:15}
 ];
-export const ROADS            = [
-  [{x:512,y:360},{x:500,y:334},{x:505,y:301},{x:528,y:278},{x:541,y:244}],
-  [{x:541,y:244},{x:516,y:224},{x:489,y:205},{x:472,y:190}],
-  [{x:512,y:360},{x:541,y:396},{x:556,y:421},{x:576,y:448}]
-];
+export const RIVERS = [geoLine([[7.4,44.75],[8.2,45.05],[9.3,45.1],[10.4,45.05],[11.4,44.95],[12.3,44.85]]),geoLine([[12.1,43.65],[12.4,43],[12.45,42.5],[12.5,41.9],[12.3,41.73]])];
 export const BATTLE_FORESTS = [{x:365,y:345,w:155,h:170},{x:700,y:65,w:155,h:145}];
 export const BATTLE_HILL = {x:480,y:170,rx:130,ry:90};
