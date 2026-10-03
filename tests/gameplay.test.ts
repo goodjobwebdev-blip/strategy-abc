@@ -80,3 +80,8 @@ test('field victory does not capture distant Felsina and new state saves queue a
  issueOrder(b.units[0],{kind:'move',x:600,y:800});issueOrder(b.units[0],{kind:'move',x:700,y:900,facing:1},true);
  assert.ok(validSave({schema:5,campaign:c,battle:b}));b.units[0].queue.push({kind:'move',x:Infinity,y:80});assert.equal(validSave({schema:5,campaign:c,battle:b}),false);
 });
+
+test('retreat deployment starts under pressure and cannot be moved to the exit before combat',()=>{
+ const b=trainingBattle('city',42,'retreat');assert.equal(b.units[0].x,500);assert.equal(b.units[8].x,940);
+ assert.ok(battleClick(b,b.units[0].id,{x:100,y:500},false,true).error);
+});
