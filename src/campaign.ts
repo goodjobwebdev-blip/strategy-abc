@@ -19,7 +19,10 @@ export function segmentDistance(p: Point, a: Point, b: Point) {
   const t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy || 1)));
   return distance(p,{x:a.x+t*dx,y:a.y+t*dy});
 }
-export function onRoad(p: Point) { return ROADS.some(r=>r.slice(1).some((b,i)=>segmentDistance(p,r[i],b)<12)); }
+// Spatial bins keep the detailed road geometry cheap to query during world A*.
+const ROAD_BIN=40,roadBins=new Map<string,[Point,Point][]>();
+for(const road of ROADS)for(let i=1;i<road.length;i++){const a=road[i-1],b=road[i];for(let x=Math.floor((Math.min(a.x,b.x)-12)/ROAD_BIN);x<=Math.floor((Math.max(a.x,b.x)+12)/ROAD_BIN);x++)for(let y=Math.floor((Math.min(a.y,b.y)-12)/ROAD_BIN);y<=Math.floor((Math.max(a.y,b.y)+12)/ROAD_BIN);y++){const key=`${x},${y}`,segments=roadBins.get(key)??[];segments.push([a,b]);roadBins.set(key,segments);}}
+export function onRoad(p:Point){return (roadBins.get(`${Math.floor(p.x/ROAD_BIN)},${Math.floor(p.y/ROAD_BIN)}`)??[]).some(([a,b])=>segmentDistance(p,a,b)<12);}
 export function terrainAt(p: Point): 'sea' | 'mountain' | 'road' | 'plain' {
   if (!onLand(p)) return 'sea';
   if (onRoad(p)) return 'road';

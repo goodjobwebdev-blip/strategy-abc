@@ -11,12 +11,6 @@ def polys(g):
  if g.geom_type=='Polygon' and g.interiors:return sum((polys(t.intersection(g)) for t in triangulate(g)),[])
  if g.geom_type=='Polygon':return [[{'x':round(x,2),'y':round(y,2)} for x,y in g.exterior.coords]]
  return sum((polys(p) for p in g.geoms),[])
-def lines(g):
- if g.is_empty:return []
- if g.geom_type=='LineString':return [[{'x':round(x,2),'y':round(y,2)} for x,y in g.coords]]
- return sum((lines(p) for p in g.geoms),[])
-roads=[]
-for r in raw['ROADS']:roads+=lines(LineString([(p['x'],p['y']) for p in r]).intersection(land))
 # Coastal destinations are moved a few pixels inland when a coarse coast places the anchor in water.
 snaps={}
 for c in raw['INITIAL_CITIES']:
@@ -24,7 +18,7 @@ for c in raw['INITIAL_CITIES']:
  if not land.contains(p):
   q=nearest_points(land.buffer(-1),p)[0];snaps[c['id']]={'x':round(q.x,3),'y':round(q.y,3)}
 content="import type { Point } from './data.ts';\n"
-for name,value in [('FOREST_REGIONS',polys(forest)),('MOUNTAIN_REGIONS',polys(mountain)),('LAND_ROADS',roads)]:content+='export const '+name+':Point[][]='+json.dumps(value,separators=(',',':'))+';\n'
+for name,value in [('FOREST_REGIONS',polys(forest)),('MOUNTAIN_REGIONS',polys(mountain))]:content+='export const '+name+':Point[][]='+json.dumps(value,separators=(',',':'))+';\n'
 content+='export const CITY_ANCHORS:Record<string,Point>='+json.dumps(snaps,separators=(',',':'))+';\n'
 (Path(__file__).resolve().parents[1]/'src/world-regions.ts').write_text(content)
 print('Forest regions',len(polys(forest)),'mountain regions',len(polys(mountain)),'coastal anchors',snaps)
