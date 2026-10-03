@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { newCampaign, findPath, terrainAt, traversable, moveCost, recruit, setDestination, nextDay, canBattle, cityAtArmy } from '../src/campaign.ts';
+import { newCampaign, findPath, terrainAt, traversable, moveCost, recruit, setDestination, nextDay, canBattle, cityAtArmy, collectGarrison } from '../src/campaign.ts';
 import { TYPES, INITIAL_CITIES, project } from '../src/data.ts';
 import { createBattle, trainingBattle, autoBattle, attackDirection, damageMultiplier, stepBattle, alive, survivors } from '../src/battle.ts';
 import { validSave } from '../src/storage.ts';
@@ -20,12 +20,12 @@ test('Rome can reach Ariminum then enemy using legal terrain',()=>{
   if(!canBattle(c))assert.equal(setDestination(c,c.enemyPosition),null);for(let i=0;i<10&&c.route.length;i++)nextDay(c);
   assert.ok(canBattle(c));
 });
-test('recruiting deducts cost and remote garrison joins at arrival',()=>{
+test('recruiting deducts cost and remote garrison joins only on explicit collection',()=>{
   const c=newCampaign(),gold=c.gold;
   assert.equal(recruit(c,'capua'),null);assert.equal(c.gold,gold-35);assert.equal(c.army.length,3);
   assert.equal(c.cities.find(x=>x.id==='capua')!.garrison.length,1);
   setDestination(c,c.cities.find(x=>x.id==='capua')!);for(let i=0;i<5&&c.route.length;i++)nextDay(c);
-  assert.equal(c.army.length,4);assert.equal(c.cities.find(x=>x.id==='capua')!.garrison.length,0);
+  assert.equal(c.army.length,3);collectGarrison(c);assert.equal(c.army.length,4);assert.equal(c.cities.find(x=>x.id==='capua')!.garrison.length,0);
   const before=c.gold;c.gold=0;assert.ok(recruit(c,'rome'));assert.equal(c.gold,0);c.gold=before;
   assert.ok(recruit(c,'felsina'));
 });

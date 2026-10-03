@@ -17,7 +17,7 @@ test('sea crossings reach Britain and Egypt and remain saveable during transit',
 
 });
 test('overseas garrisons must be defeated before occupation and recruitment',()=>{
- const c=newCampaign(),city=c.cities.find(x=>x.id==='alexandria')!;c.position={x:city.x,y:city.y};liberate(c);assert.equal(city.owner,'boii');const e=encounter(c)!;assert.equal(e.name,'Птолемеи');const b=createBattle(c.army,e.units);b.winner='rome';applyBattleResult(c,b,c.army,[]);assert.equal(city.owner,'rome');assert.equal(city.garrison.length,0);assert.equal(recruit(c,city.id),null);assert.equal(c.army.length,4);assert.equal(c.enemy.length,2);
+ const c=newCampaign(),city=c.cities.find(x=>x.id==='alexandria')!;c.position={x:city.x,y:city.y};liberate(c);assert.equal(city.owner,'boii');const e=encounter(c)!;assert.equal(e.name,'Птолемеи');const b=createBattle(c.army,e.units);b.winner='rome';applyBattleResult(c,b,c.army,[]);assert.equal(city.owner,'rome');assert.equal(city.garrison.length,0);assert.equal(recruit(c,city.id),null);assert.equal(c.army.length,3);assert.equal(city.garrison.length,1);assert.equal(c.enemy.length,2);
 });
 test('rival field armies are separate from Boii and city defenders',()=>{
  const c=newCampaign(),r=c.rivals[0];c.position={...r.position};const b=createBattle(c.army,encounter(c)!.units);b.winner='rome';applyBattleResult(c,b,c.army,[]);assert.equal(r.units.length,0);assert.equal(c.enemy.length,2);assert.equal(c.cities.find(x=>x.id===r.home)!.owner,'boii');assert.ok(canBattle(c));

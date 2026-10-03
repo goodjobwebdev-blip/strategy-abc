@@ -1,3 +1,4 @@
+import { attachArmies } from './campaign.ts';
 import type { Campaign } from './campaign.ts';
 import type { Battle } from './battle.ts';
 import { TYPES, INITIAL_CITIES, WORLD_SIZE } from './data.ts';
@@ -13,6 +14,7 @@ function coreValid(s:any):boolean {
   if(!Array.isArray(c.army)||c.army.length>16||!c.army.every(troop)||!Array.isArray(c.enemy)||!c.enemy.every(troop)||!Array.isArray(c.route)||!c.route.every((p:any)=>point(p))||!Array.isArray(c.notices)||!c.notices.every((v:unknown)=>typeof v==='string'))return false;
   if(!Array.isArray(c.cities)||c.cities.length!==INITIAL_CITIES.length||!c.cities.every((v:any)=>INITIAL_CITIES.map(x=>x.id).includes(v.id)&&typeof v.name==='string'&&typeof v.latin==='string'&&point(v)&&['rome','boii'].includes(v.owner)&&Array.isArray(v.garrison)&&v.garrison.length<=8&&v.garrison.every(troop)))return false;
   if(!Array.isArray(c.rivals)||c.rivals.length>12||!c.rivals.every((r:any)=>typeof r.id==='string'&&typeof r.name==='string'&&INITIAL_CITIES.some(x=>x.id===r.home)&&point(r.position)&&Array.isArray(r.units)&&r.units.length<=16&&r.units.every(troop)))return false;
+  if(c.armies!==undefined&&(!Array.isArray(c.armies)||!c.armies.length||!c.armies.some((a:any)=>a.id===c.activeArmyId)||new Set(c.armies.map((a:any)=>a.id)).size!==c.armies.length||!c.armies.every((a:any)=>typeof a.id==='string'&&typeof a.name==='string'&&point(a.position)&&finite(a.movement)&&a.movement>=0&&Array.isArray(a.route)&&a.route.every((p:any)=>point(p))&&Array.isArray(a.army)&&a.army.length<=16&&a.army.every(troop))))return false;
   if(new Set(c.cities.map((v:any)=>v.id)).size!==c.cities.length)return false;
   if(s.battle!==null){
     const b=s.battle;
@@ -31,5 +33,5 @@ export function validMap(m:any):m is BattleMap{
  return Array.isArray(m.forests)&&m.forests.length<=100&&m.forests.every(ellipse)&&Array.isArray(m.obstacles)&&m.obstacles.length<=80&&m.obstacles.every((o:any)=>point(o,m.width,m.height)&&finite(o.w)&&finite(o.h)&&o.w>0&&o.h>0&&o.w<m.width&&o.h<m.height&&['building','rock'].includes(o.kind))&&Array.isArray(m.roads)&&m.roads.length<=10&&m.roads.every((r:any)=>Array.isArray(r)&&r.length<=30&&r.every((p:any)=>point(p,m.width,m.height)));
 }
 export function validSave(s:any):s is Save{return coreValid(s);}
-export function readSave():Save|null {try{const data=localStorage.getItem(KEY);const parsed=data?JSON.parse(data):null;return validSave(parsed)?parsed:null;}catch{return null;}}
+export function readSave():Save|null {try{const data=localStorage.getItem(KEY);const parsed=data?JSON.parse(data):null;if(!validSave(parsed))return null;attachArmies(parsed.campaign);return parsed;}catch{return null;}}
 export function writeSave(campaign:Campaign,battle:Battle|null):boolean {try{localStorage.setItem(KEY,JSON.stringify({schema:7,campaign,battle}));return true;}catch{return false;}}
