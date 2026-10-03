@@ -1,0 +1,17 @@
+{
+  "name": "strategy-abc",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "check": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "build": "node scripts/build-portable.mjs && node scripts/publish.mjs",
+    "build:bundle": "npm run check && vite build && node scripts/publish.mjs",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": { "phaser": "3.90.0" },
+  "devDependencies": { "typescript": "5.9.3", "vite": "7.1.12" },
+  "engines": { "node": ">=22.18.0" }
+}
