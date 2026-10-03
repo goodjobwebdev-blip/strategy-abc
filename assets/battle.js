@@ -3,9 +3,9 @@ import { TYPES, TYPE_ORDER, BATTLE_FORESTS, BATTLE_HILL } from './data.js';
 import { distance } from './campaign.js';
 import { generateMap, mapForest, heightAt, blocked, clearLine, battlePath } from './terrain.js';
                                                      
-                                                                                                      
+                                                                                                                     
                                                                                                                                                                                                                                                                                                   
-                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                              
 export const BATTLE_STEP=.1;
 export const BATTLE_LIMIT=600;
 export function alive(u           ){return u.men>=1&&!u.routed;}
@@ -14,15 +14,15 @@ export function hillAt(p      ,map           ){return map?heightAt(p,map)>.35:((
 export function angleDifference(a       ,b       ){return Math.abs(Math.atan2(Math.sin(a-b),Math.cos(a-b)));}
 export function attackDirection(attacker           ,defender           )                       {const angle=Math.atan2(attacker.y-defender.y,attacker.x-defender.x);const diff=angleDifference(angle,defender.angle);return diff>2.25?'rear':diff>1.15?'flank':'front';}
 export function battleLog(b       ,text       ){b.logs.unshift(text);b.logs=b.logs.slice(0,9);}
-function spawn(army           ,side     )             {
+function spawn(army           ,side     ,map          )             {
   return army.map((u,i)=>{
     const row=i%8,column=Math.floor(i/8);
-    const y=army.length<=4?220+i*90:65+row*74;
-    return {...u,id:`${side}:${u.id}`,side,x:side==='rome'?145-column*65:850+column*65,y,initialMen:u.men,morale:TYPES[u.type].morale,fatigue:0,cohesion:1,angle:side==='rome'?0:Math.PI,order:{kind:'hold'},routed:false,charge:0,chargeCooldown:0,lastShot:0};
+    const rows=Math.min(army.length,8),y=map.height/2+(row-(rows-1)/2)*110;
+    return {...u,id:`${side}:${u.id}`,side,x:side==='rome'?260-column*85:map.width-260+column*85,y,initialMen:u.men,morale:TYPES[u.type].morale,fatigue:0,cohesion:1,angle:side==='rome'?0:Math.PI,order:{kind:'hold'},routed:false,charge:0,chargeCooldown:0,lastShot:0};
   });
 }
 export function createBattle(rome           ,boii           ,training=false,aiRome=false,map          =generateMap('plain',1337))        {
-  return {units:[...spawn(rome,'rome'),...spawn(boii,'boii')],elapsed:0,winner:null,logs:[`Разведка: ${map.biome==='city'?'улицы и кварталы '+map.townName:map.biome==='forest'?'лес с полянами':map.biome==='mountain'?'горные проходы':'открытая равнина'}.`],shots:[],aiRome,training,reason:'',map};
+  return {phase:'deployment',units:[...spawn(rome,'rome',map),...spawn(boii,'boii',map)],elapsed:0,winner:null,logs:[`Разведка: ${map.biome==='city'?'улицы и кварталы '+map.townName:map.biome==='forest'?'лес с полянами':map.biome==='mountain'?'горные проходы':'открытая равнина'}.`],shots:[],aiRome,training,reason:'',map};
 }
 export function trainingBattle(biome      ='plain',seed=1337){const army=TYPE_ORDER.map((type,i)=>({id:`training-${i}`,type,men:TYPES[type].men}));return createBattle(army,army,true,false,generateMap(biome,seed));}
 function chooseTarget(b       ,u           ){
@@ -33,7 +33,7 @@ function chooseTarget(b       ,u           ){
   })[0];
 }
 function moveUnit(b       ,u           ,goal      ,dt       ){
-  const p={x:Math.max(20,Math.min(980,goal.x)),y:Math.max(25,Math.min(615,goal.y))};
+  const p={x:Math.max(20,Math.min(b.map.width-20,goal.x)),y:Math.max(25,Math.min(b.map.height-35,goal.y))};
   if(blocked(p,b.map))return false;
   let target=p;
   if(!clearLine(u,p,b.map,8)){
@@ -64,12 +64,12 @@ export function damageMultiplier(attacker           ,defender           ,ranged 
   return mult;
 }
 export function stepBattle(b       ,dt=BATTLE_STEP){
-  if(b.winner)return;
+  if(b.winner||b.phase==='deployment')return;
   b.elapsed+=dt;b.shots=b.shots.filter(s=>(s.ttl-=dt)>0);
   for(const u of b.units){
     if(u.men<1)continue;
     u.chargeCooldown=Math.max(0,u.chargeCooldown-dt);
-    if(u.routed){moveUnit(b,u,{x:u.side==='rome'?15:985,y:u.y},dt);continue;}
+    if(u.routed){moveUnit(b,u,{x:u.side==='rome'?20:b.map.width-20,y:u.y},dt);continue;}
     const isAI=u.side==='boii'||b.aiRome;
     let target                     ;
     if(isAI){target=chooseTarget(b,u);if(target)u.order={kind:'attack',target:target.id};}
@@ -82,7 +82,7 @@ export function stepBattle(b       ,dt=BATTLE_STEP){
       // Defenders holding a line do not automatically turn to face flankers.
       else if(u.order.kind==='attack')u.angle=Math.atan2(target.y-u.y,target.x-u.x);
     } else if(u.order.kind==='move'){
-      moved=moveUnit(b,u,u.order,dt);if(distance(u,u.order)<3)u.order={kind:'hold'};
+      moved=moveUnit(b,u,u.order,dt);if(distance(u,u.order)<3){if(u.order.facing!==undefined)u.angle=u.order.facing;u.order={kind:'hold'};}
     }
     if(!moved){u.fatigue=Math.max(0,u.fatigue-dt*.018);u.cohesion=Math.min(1,u.cohesion+dt*.035);u.charge=Math.max(0,u.charge-dt*.2);}
   }
@@ -138,6 +138,6 @@ export function stepBattle(b       ,dt=BATTLE_STEP){
   if(!rome||!boii){b.winner=rome?'rome':boii?'boii':'draw';b.reason=b.winner==='draw'?'Обе армии потеряли боеспособность.':'Противник потерял боеспособные отряды.';}
   else if(b.elapsed>=BATTLE_LIMIT){b.winner='draw';b.reason='Лимит 10 минут: армии разошлись без победителя.';}
 }
-export function autoBattle(b       ){b.aiRome=true;for(let i=0;i<BATTLE_LIMIT/BATTLE_STEP+2&&!b.winner;i++)stepBattle(b);return b;}
+export function autoBattle(b       ){b.phase='combat';b.aiRome=true;for(let i=0;i<BATTLE_LIMIT/BATTLE_STEP+2&&!b.winner;i++)stepBattle(b);return b;}
 export function survivors(b       ,side     )           {return b.units.filter(u=>u.side===side&&u.men>=1).map(u=>({id:u.id.split(':').slice(1).join(':'),type:u.type,men:Math.floor(u.men)}));}
 export function losses(b       ,side     ){return b.units.filter(u=>u.side===side).reduce((n,u)=>n+u.initialMen-Math.floor(u.men),0);}

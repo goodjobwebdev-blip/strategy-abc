@@ -8,7 +8,7 @@ export interface Obstacle extends Point { w:number;h:number;kind:'building'|'roc
 export type ReliefKind='slope'|'valley'|'ridge'|'rolling';
 export const RELIEF_NAMES:Record<ReliefKind,string>={slope:'Склон',valley:'Долина',ridge:'Гряда',rolling:'Волнистая равнина'};
 export interface Relief { kind:ReliefKind;angle:number;amplitude:number;offset:number;phase:number }
-export interface BattleMap { version:2;relief:Relief;biome:Biome;seed:number;townName:string;forests:Ellipse[];obstacles:Obstacle[];roads:Point[][] }
+export interface BattleMap { version:3;width:number;height:number;relief:Relief;biome:Biome;seed:number;townName:string;forests:Ellipse[];obstacles:Obstacle[];roads:Point[][] }
 export function randomFromSeed(seed:number){let n=seed>>>0;return()=>{n+=0x6d2b79f5;let t=n;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296;};}
 export function inEllipse(p:Point,e:Ellipse){return ((p.x-e.x)/e.rx)**2+((p.y-e.y)/e.ry)**2<1;}
 export function mapForest(p:Point,map:BattleMap){
@@ -16,6 +16,7 @@ export function mapForest(p:Point,map:BattleMap){
   return map.forests.some(e=>inEllipse(p,e));
 }
 export function heightAt(p:Point,map:BattleMap){
+  p={x:p.x*1000/map.width,y:p.y*650/map.height};
   const r=map.relief,c=Math.cos(r.angle),s=Math.sin(r.angle);
   const along=(p.x-500)*c+(p.y-325)*s;
   const span=Math.abs(c)*500+Math.abs(s)*325;
@@ -29,10 +30,10 @@ export function heightAt(p:Point,map:BattleMap){
   return .1+r.amplitude*(.5+.25*Math.sin(along/210+r.phase)+.25*Math.sin(across/170+r.phase*.7));
 }
 // Isolines come from one continuous height field, rather than independent hill rings.
-export function contourLines(map:BattleMap,spacing=.35,step=20):Point[][]{
+export function contourLines(map:BattleMap,spacing=.35,step=40):Point[][]{
   const lines:Point[][]=[];
-  for(let x=0;x<1000;x+=step)for(let y=0;y<650;y+=step){
-    const corners=[{x,y},{x:x+step,y},{x:x+step,y:Math.min(650,y+step)},{x,y:Math.min(650,y+step)}];
+  for(let x=0;x<map.width;x+=step)for(let y=0;y<map.height;y+=step){
+    const corners=[{x,y},{x:x+step,y},{x:x+step,y:Math.min(map.height,y+step)},{x,y:Math.min(map.height,y+step)}];
     const heights=corners.map(p=>heightAt(p,map)),low=Math.min(...heights),high=Math.max(...heights);
     for(let level=Math.ceil(low/spacing)*spacing;level<high;level+=spacing){
       const hits:Point[]=[];
@@ -44,7 +45,7 @@ export function contourLines(map:BattleMap,spacing=.35,step=20):Point[][]{
     }
   }return lines;
 }
-export function blocked(p:Point,map:BattleMap,margin=8){return p.x<15||p.x>985||p.y<20||p.y>620||map.obstacles.some(o=>p.x>o.x-margin&&p.x<o.x+o.w+margin&&p.y>o.y-margin&&p.y<o.y+o.h+margin);}
+export function blocked(p:Point,map:BattleMap,margin=8){return p.x<15||p.x>map.width-15||p.y<20||p.y>map.height-30||map.obstacles.some(o=>p.x>o.x-margin&&p.x<o.x+o.w+margin&&p.y>o.y-margin&&p.y<o.y+o.h+margin);}
 export function clearLine(a:Point,b:Point,map:BattleMap,margin=0){
   if(blocked(a,map,margin)||blocked(b,map,margin))return false;
   // Exact segment/rectangle intersection: sampled rays could miss thin corners.
@@ -60,7 +61,7 @@ export function generateMap(biome:Biome,seed:number,townName='Поселение
   const rand=randomFromSeed(seed),range=(min:number,max:number)=>min+rand()*(max-min);
   const kind:ReliefKind=biome==='mountain'?(rand()<.5?'valley':'ridge'):biome==='city'?'slope':biome==='forest'?(['slope','valley','ridge'] as ReliefKind[])[Math.floor(rand()*3)]:rand()<.5?'slope':'rolling';
   const relief:Relief={kind,angle:biome==='mountain'?range(-.12,.12):range(0,Math.PI*2),amplitude:biome==='mountain'?range(2.6,3.5):biome==='forest'?range(1,1.8):biome==='city'?.35:range(.35,.7),offset:range(-40,40),phase:range(0,Math.PI*2)};
-  const map:BattleMap={version:2,relief,biome,seed:seed>>>0,townName,forests:[],obstacles:[],roads:[]};
+  const map:BattleMap={version:3,width:2400,height:1600,relief,biome,seed:seed>>>0,townName,forests:[],obstacles:[],roads:[]};
   const road=[{x:15,y:325},{x:290,y:325},{x:500,y:325},{x:710,y:325},{x:985,y:325}];
   if(biome==='forest'){
     map.roads=[road.map((p,i)=>({...p,y:i===0||i===4?325:325+range(-28,28)}))];
@@ -83,6 +84,10 @@ export function generateMap(biome:Biome,seed:number,townName='Поселение
   }else{
     for(let i=0;i<3;i++)map.forests.push({x:range(300,740),y:i%2?range(500,580):range(60,115),rx:range(35,65),ry:range(25,45)});
   }
+  const sx=map.width/1000,sy=map.height/650;
+  map.forests=map.forests.map(f=>({...f,x:f.x*sx,y:f.y*sy,rx:f.rx*sx,ry:f.ry*sy}));
+  map.obstacles=map.obstacles.map(o=>({...o,x:o.x*sx,y:o.y*sy,w:o.w*sx,h:o.h*sy}));
+  map.roads=map.roads.map(r=>r.map(p=>({x:p.x*sx,y:p.y*sy})));
   return map;
 }
 export function encounterMap(location:Point,day:number):BattleMap{
@@ -93,8 +98,8 @@ export function encounterMap(location:Point,day:number):BattleMap{
 }
 export function battlePath(start:Point,goal:Point,map:BattleMap):Point[]|null{
   if(blocked(goal,map))return null;if(clearLine(start,goal,map,8))return [goal];
-  const cols=49,rows=30,point=(i:number)=>({x:20+(i%cols)*20,y:30+Math.floor(i/cols)*20});
-  const index=(p:Point)=>Math.max(0,Math.min(rows-1,Math.round((p.y-30)/20)))*cols+Math.max(0,Math.min(cols-1,Math.round((p.x-20)/20)));
+  const cell=40,cols=Math.floor((map.width-40)/cell)+1,rows=Math.floor((map.height-60)/cell)+1,point=(i:number)=>({x:20+(i%cols)*cell,y:30+Math.floor(i/cols)*cell});
+  const index=(p:Point)=>Math.max(0,Math.min(rows-1,Math.round((p.y-30)/cell)))*cols+Math.max(0,Math.min(cols-1,Math.round((p.x-20)/cell)));
   const nearest=(p:Point)=>{let best=-1,min=Infinity;for(let i=0;i<cols*rows;i++){const q=point(i),d=distance(p,q);if(d<min&&!blocked(q,map)&&clearLine(p,q,map,8)){min=d;best=i;}}return best;};
   let first=index(start),last=index(goal);
   if(blocked(point(first),map)||!clearLine(start,point(first),map,8))first=nearest(start);
