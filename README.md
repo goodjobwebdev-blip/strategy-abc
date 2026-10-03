@@ -18,7 +18,7 @@
 Из корня репозитория:
 
 ```sh
-python3 -m http.server 8000 --directory docs
+python3 -m http.server 8000
 ```
 
 Открыть http://localhost:8000/. Зависимости и сборка для текущей заглушки не нужны.
@@ -27,7 +27,7 @@ python3 -m http.server 8000 --directory docs
 
 1. Открыть Settings → Pages.
 2. В Build and deployment выбрать Source: **Deploy from a branch**.
-3. Выбрать ветку **main**, папку **/docs**, нажать Save.
+3. Выбрать ветку **main**, папку **/(root)**, нажать Save.
 4. Дождаться успешного развёртывания в Actions.
 
 Адрес после включения публикации: https://goodjobwebdev-blip.github.io/strategy-abc/.
@@ -37,16 +37,16 @@ python3 -m http.server 8000 --directory docs
 ## Структура
 
 ```text
-README.md
+index.html            — точка входа приложения
+styles.css            — оформление заглушки
+.nojekyll             — публикация без Jekyll
+hello-world/
+  index.html          — визуальная заглушка
+  main.js             — проверка JavaScript
 docs/
   premise.md          — концепция игры
   stack.md            — предлагаемый стек
-  index.html          — стартовая страница
-  styles.css          — оформление
-  .nojekyll           — публикация статических файлов без Jekyll
-  hello-world/
-    index.html        — визуальная заглушка
-    main.js           — проверка работы JavaScript
+README.md
 ```
 
 Следующий предлагаемый шаг — тактический прототип на TypeScript и Phaser. Решения о периоде, фракциях и правилах боя пока открыты.
