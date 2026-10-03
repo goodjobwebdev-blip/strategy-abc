@@ -1,46 +1,46 @@
 import Phaser from 'phaser';
-import './style.css';
-import { TYPES, TYPE_ORDER } from './data.ts';
-import type { Point } from './data.ts';
-import { newCampaign, nextDay, recruit, setDestination, canBattle, distance, cityAtArmy, collectGarrison, notice, RECRUIT_COST, DAY_MOVEMENT, RECRUIT_PRICES, upkeep, replenish, applyBattleResult } from './campaign.ts';
-import { createBattle, trainingBattle, stepBattle, autoBattle, alive, survivors, losses, forestAt, hillAt, BATTLE_STEP, FORMATIONS, MISSION_NAMES, visibleEnemies, setFormation, objectiveText } from './battle.ts';
-import type { Battle, Mission, Formation } from './battle.ts';
-import { MapScene } from './view.ts';
-import { BIOME_NAMES, encounterMap, blocked, battlePath } from './terrain.ts';
-import { battleClick, orderText, groupOrder, issueOrder } from './controls.ts';
-import type { Biome } from './terrain.ts';
-import { readSave, writeSave } from './storage.ts';
+
+import { TYPES, TYPE_ORDER } from './data.7462b6a68309.js';
+                                       
+import { newCampaign, nextDay, recruit, setDestination, canBattle, distance, cityAtArmy, collectGarrison, notice, RECRUIT_COST, DAY_MOVEMENT, RECRUIT_PRICES, upkeep, replenish, applyBattleResult } from './campaign.7462b6a68309.js';
+import { createBattle, trainingBattle, stepBattle, autoBattle, alive, survivors, losses, forestAt, hillAt, BATTLE_STEP, FORMATIONS, MISSION_NAMES, visibleEnemies, setFormation, objectiveText } from './battle.7462b6a68309.js';
+                                                              
+import { MapScene } from './view.7462b6a68309.js';
+import { BIOME_NAMES, encounterMap, blocked, battlePath } from './terrain.7462b6a68309.js';
+import { battleClick, orderText, groupOrder, issueOrder } from './controls.7462b6a68309.js';
+                                          
+import { readSave, writeSave } from './storage.7462b6a68309.js';
 
 const save=readSave();
 let campaign=save?.campaign??newCampaign();
-let battle:Battle|null=save?.battle??null;
-let selectedUnit:string|null=battle?.units.find(u=>u.side==='rome'&&alive(u))?.id??null;
-let selectedUnits:string[]=selectedUnit?[selectedUnit]:[];
-const groups:Record<string,string[]>={};
-let trainingMission:Mission=battle?.mission??'annihilation';
-let selectedCity:string|null='rome';
-let inspectedUnit:string|null=selectedUnit;
+let battle            =save?.battle??null;
+let selectedUnit            =battle?.units.find(u=>u.side==='rome'&&alive(u))?.id??null;
+let selectedUnits         =selectedUnit?[selectedUnit]:[];
+const groups                        ={};
+let trainingMission        =battle?.mission??'annihilation';
+let selectedCity            ='rome';
+let inspectedUnit            =selectedUnit;
 let showOrders=true,showNames=true,enemyRosterOpen=false;
-let trainingBiome:Biome=battle?.map.biome??'plain',trainingSeed=battle?.map.seed??1337;
+let trainingBiome      =battle?.map.biome??'plain',trainingSeed=battle?.map.seed??1337;
 let paused=true,speed=1,accumulator=0,uiTime=0,saveTime=0;
-let dialog:'help'|'catalog'|'reset'|'retreat'|null=null;
-let toast='',toastTimer:ReturnType<typeof setTimeout>|undefined;
+let dialog                                        =null;
+let toast='',toastTimer                                        ;
 let saveOK=true;
-const root=document.querySelector<HTMLDivElement>('#app')!;
+const root=document.querySelector                ('#app') ;
 root.innerHTML=`
   <header class="masthead"><div class="brand"><span class="seal">SPQR</span><div><strong>STRATEGY ABC</strong><span>РИМ · СЕВЕРНАЯ ГРАНИЦА</span></div></div><div id="resources" class="resources"></div><button data-action="help" class="icon-button" aria-label="Открыть помощь">?</button></header>
   <nav class="navigation"><div class="tabs"><button id="campaign-tab" data-action="campaign-tab">Кампания</button><button id="training-tab" data-action="training">Тактический полигон</button></div><div class="nav-right"><span class="version">MVP 0.5</span><button class="quiet" data-action="catalog">8 типов войск</button><button class="quiet" data-action="reset">Новая кампания</button></div></nav>
   <main class="layout"><section class="map-column"><div class="map-heading"><div><span id="map-eyebrow" class="eyebrow"></span><h1 id="map-title"></h1></div><div id="map-tools"></div></div><div id="game" aria-label="Карта игры"></div><div id="map-caption" class="map-caption"></div></section><aside id="side-panel" aria-label="Управление игрой"><div id="terrain-tools"></div><div id="sidebar"></div><div id="bottom-panel"></div></aside></main>
   <footer class="footer"><span id="save-status"></span><span>Условная кампания · III век до н. э.</span><a href="https://github.com/goodjobwebdev-blip/strategy-abc/blob/main/docs/premise.md" target="_blank" rel="noopener">Концепция ↗</a></footer>
   <div id="toast" role="status" aria-live="polite"></div><div id="modal"></div>`;
-const el=(id:string)=>document.getElementById(id)!;
-const esc=(s:unknown)=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
-function showToast(message:string){toast=message;el('toast').textContent=message;el('toast').className='visible';clearTimeout(toastTimer);toastTimer=setTimeout(()=>{toast='';el('toast').className='';},4500);}
+const el=(id       )=>document.getElementById(id) ;
+const esc=(s        )=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c] ));
+function showToast(message       ){toast=message;el('toast').textContent=message;el('toast').className='visible';clearTimeout(toastTimer);toastTimer=setTimeout(()=>{toast='';el('toast').className='';},4500);}
 function persist(){saveOK=writeSave(campaign,battle);el('save-status').textContent=saveOK?'● Автосохранение в этом браузере':'Сохранение недоступно — оставь вкладку открытой';}
-function stat(label:string,value:string|number){return `<div class="resource"><span>${label}</span><strong>${value}</strong></div>`;}
+function stat(label       ,value              ){return `<div class="resource"><span>${label}</span><strong>${value}</strong></div>`;}
 function roster(){
   const units=battle?battle.units.filter(u=>u.side==='rome'):campaign.army;
-  return `<div class="roster">${units.map(u=>{const bu=battle?battle.units.find(v=>v.id===u.id):null;return `<button class="unit-card ${(battle?selectedUnits.includes(u.id):selectedUnit===u.id)?'selected':''} ${bu?.routed?'routed':''}" data-action="unit" data-id="${esc(u.id)}" ${u.men<1?'disabled':''}><span class="unit-icon">${TYPES[u.type].icon}</span><span><strong>${TYPES[u.type].short}</strong><small>${Math.ceil(u.men)} воинов · опыт ${u.experience??0}${bu?` · ${bu.routed?'бегство':'мораль '+Math.round(bu.morale)}`:''}</small>${bu?`<small class="order-status">${esc(orderText(battle!,bu))}</small>`:''}</span></button>`;}).join('')||'<p class="muted">Армия потеряна. Найми крестьян в Риме.</p>'}</div>`;
+  return `<div class="roster">${units.map(u=>{const bu=battle?battle.units.find(v=>v.id===u.id):null;return `<button class="unit-card ${(battle?selectedUnits.includes(u.id):selectedUnit===u.id)?'selected':''} ${bu?.routed?'routed':''}" data-action="unit" data-id="${esc(u.id)}" ${u.men<1?'disabled':''}><span class="unit-icon">${TYPES[u.type].icon}</span><span><strong>${TYPES[u.type].short}</strong><small>${Math.ceil(u.men)} воинов · опыт ${u.experience??0}${bu?` · ${bu.routed?'бегство':'мораль '+Math.round(bu.morale)}`:''}</small>${bu?`<small class="order-status">${esc(orderText(battle ,bu))}</small>`:''}</span></button>`;}).join('')||'<p class="muted">Армия потеряна. Найми крестьян в Риме.</p>'}</div>`;
 }
 function cameraTools(){return `<div class="camera-tools"><button data-action="zoom-out" aria-label="Отдалить карту">−</button><button data-action="zoom-in" aria-label="Приблизить карту">+</button><button data-action="overview">Обзор</button><button data-action="focus-army">К войскам</button><span>Колесо: масштаб · WASD / СКМ / Alt + ЛКМ: камера</span></div>`;}
 function toggleTime(){if(!battle)return;if(battle.phase==='deployment'){battle.phase='combat';paused=false;}else paused=!paused;accumulator=0;}
@@ -48,8 +48,8 @@ function render(){
   const soldiers=campaign.army.reduce((n,u)=>n+u.men,0);
   el('resources').innerHTML=stat('ДЕНЬ',campaign.day)+stat('ДЕНАРИИ',campaign.gold)+stat('АРМИЯ',`${campaign.army.length} / ${soldiers}`);
   el('campaign-tab').classList.toggle('active',!battle);el('training-tab').classList.toggle('active',!!battle?.training);
-  (el('campaign-tab') as HTMLButtonElement).disabled=!!battle;
-  (el('training-tab') as HTMLButtonElement).disabled=!!battle;
+  (el('campaign-tab')                     ).disabled=!!battle;
+  (el('training-tab')                     ).disabled=!!battle;
   el('map-eyebrow').textContent=battle?(battle.training?'ПОЛИГОН · ВСЕ ВОСЕМЬ ТИПОВ':'СРАЖЕНИЕ У ФЕЛЬСИНЫ'):'СЕКТОР I · АПЕННИНСКИЙ ПОЛУОСТРОВ';
   el('map-title').textContent=battle?'Строй. Манёвр. Мораль.':'Северная граница';
   el('terrain-tools').innerHTML=battle?.training?`<div class="terrain-toolbar"><label>Местность <select id="training-biome" ${paused?'':'disabled'}>${Object.entries(BIOME_NAMES).map(([key,name])=>`<option value="${key}" ${trainingBiome===key?'selected':''}>${name}</option>`).join('')}</select></label><label>Seed <input id="training-seed" type="number" min="0" max="4294967295" value="${trainingSeed}" ${paused?'':'disabled'}></label><label>Задача <select id="training-mission">${Object.entries(MISSION_NAMES).map(([id,name])=>`<option value="${id}" ${trainingMission===id?'selected':''}>${name}</option>`).join('')}</select></label><button class="secondary" data-action="regenerate">Создать карту</button><span class="small muted">Новый бой на полигоне</span></div>`:'';
@@ -66,14 +66,14 @@ function renderCampaign(){
     <section class="mission"><p class="eyebrow">${campaign.won?'КАМПАНИЯ ЗАВЕРШЕНА':'ВАША ЦЕЛЬ'}</p><h2>${campaign.won?'Северная граница под контролем':'Занять Фельсину'}</h2><p>${campaign.won?'Бойи отступили. Можно продолжить найм и движение или проверить все типы войск на полигоне.':'Проведи армию на север через Аримин и разбей бойев. Они двигаются, захватывают города и получают подкрепление.'}</p></section>
     <section class="panel"><div class="section-top"><h2>Приказы армии</h2><span class="chip">${Math.round(campaign.movement)} / ${DAY_MOVEMENT}</span></div><p class="muted">${here?`У города ${esc(here.name)}`:'В походе'}${campaign.route.length?' · маршрут продолжается завтра':''}</p><div class="meter"><span style="width:${campaign.movement/DAY_MOVEMENT*100}%"></span></div><p class="small">Выбери город на карте и нажми «Марш». Для свободного движения нажми на сушу. Дорога через перевал ускоряет путь.</p><button class="primary full" data-action="next-day">Следующий день <span>→</span></button>${campaign.route.length?'<button class="quiet full" data-action="stop-march">Отменить маршрут</button>':''}</section>
     ${canBattle(campaign)?`<section class="panel encounter"><p class="eyebrow">ПРОТИВНИК РЯДОМ</p><h2>Бойи · ${campaign.enemy.length} отряда</h2><p class="small">Поле боя: ${BIOME_NAMES[encounterMap(campaign.enemyPosition,campaign.day).biome]}</p><p class="small">${campaign.enemy.map(u=>TYPES[u.type].name).join(' · ')}</p><button class="primary full" data-action="battle">Вести бой лично</button><button class="secondary full" data-action="autobattle">Автобой</button></section>`:''}
-    <section class="panel"><p class="eyebrow">ГОРОД</p><div class="city-picker">${campaign.cities.map(c=>`<button class="${c.id===selectedCity?'active':''}" data-action="city" data-id="${c.id}">${c.name}</button>`).join('')}</div>${city?`<h2>${city.name} <small class="owner ${city.owner}">${city.owner==='rome'?'РИМ':'БОЙИ'}</small></h2><p class="small">${city.garrison.length?`Гарнизон: ${city.garrison.length} отрядов`:'Гарнизон: нет отрядов'}${here?.id===city.id?' · армия здесь':''}</p>${city.owner==='rome'?`<div class="recruit-list">${Object.entries(RECRUIT_PRICES).map(([type,cost])=>`<button class="secondary full" data-action="recruit" data-type="${type}" data-id="${city.id}" ${campaign.gold<cost!?'disabled':''}>${TYPES[type as keyof typeof TYPES].name} <span>${cost} ◈</span></button>`).join('')}</div><p class="small muted">Нанятые войска ждут в гарнизоне или присоединяются к армии в городе. Содержание: ${upkeep(campaign)} ◈/день.</p>${here?.id===city.id?'<button class="secondary full" data-action="replenish">Пополнить армию · 2 ◈/воин</button><p class="small muted">До 15 воинов в каждом отряде. Опыт сохраняется.</p>':''}`:'<p class="small muted">Вражеский город. Победи армию бойев, чтобы занять его.</p>'}<button class="quiet full" data-action="march-city" data-id="${city.id}" ${here?.id===city.id?'disabled':''}>Марш к городу →</button>`:''}</section>
+    <section class="panel"><p class="eyebrow">ГОРОД</p><div class="city-picker">${campaign.cities.map(c=>`<button class="${c.id===selectedCity?'active':''}" data-action="city" data-id="${c.id}">${c.name}</button>`).join('')}</div>${city?`<h2>${city.name} <small class="owner ${city.owner}">${city.owner==='rome'?'РИМ':'БОЙИ'}</small></h2><p class="small">${city.garrison.length?`Гарнизон: ${city.garrison.length} отрядов`:'Гарнизон: нет отрядов'}${here?.id===city.id?' · армия здесь':''}</p>${city.owner==='rome'?`<div class="recruit-list">${Object.entries(RECRUIT_PRICES).map(([type,cost])=>`<button class="secondary full" data-action="recruit" data-type="${type}" data-id="${city.id}" ${campaign.gold<cost ?'disabled':''}>${TYPES[type                      ].name} <span>${cost} ◈</span></button>`).join('')}</div><p class="small muted">Нанятые войска ждут в гарнизоне или присоединяются к армии в городе. Содержание: ${upkeep(campaign)} ◈/день.</p>${here?.id===city.id?'<button class="secondary full" data-action="replenish">Пополнить армию · 2 ◈/воин</button><p class="small muted">До 15 воинов в каждом отряде. Опыт сохраняется.</p>':''}`:'<p class="small muted">Вражеский город. Победи армию бойев, чтобы занять его.</p>'}<button class="quiet full" data-action="march-city" data-id="${city.id}" ${here?.id===city.id?'disabled':''}>Марш к городу →</button>`:''}</section>
     <section class="panel journal"><h2>Хроника</h2>${campaign.notices.slice(0,4).map(n=>`<p>${esc(n)}</p>`).join('')}</section>`;
 }
 function focusInspector(){const pane=el('side-panel'),card=document.getElementById('unit-inspector');if(card)pane.scrollTop+=card.getBoundingClientRect().top-pane.getBoundingClientRect().top-8;}
 function renderBattle(){
-  const b=battle!,visible=visibleEnemies(b),u=b.units.find(v=>v.id===(inspectedUnit??selectedUnit)&&(v.side==='rome'||visible.has(v.id)));
+  const b=battle ,visible=visibleEnemies(b),u=b.units.find(v=>v.id===(inspectedUnit??selectedUnit)&&(v.side==='rome'||visible.has(v.id)));
   const own=u?.side==='rome';
-  const live=(side:string)=>b.units.filter(v=>v.side===side&&alive(v)).length;
+  const live=(side       )=>b.units.filter(v=>v.side===side&&alive(v)).length;
   const seconds=Math.floor(b.elapsed),clock=`${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`;
   el('map-tools').innerHTML=`<span class="battle-clock">${b.phase==='deployment'?'Расстановка':clock}</span><button class="secondary" data-action="pause" ${b.winner?'disabled':''}>${b.phase==='deployment'?'Начать сражение':paused?'▶ Продолжить':'Ⅱ Пауза'}</button>${cameraTools()}`;
   el('map-caption').innerHTML=`<span><i class="dot roman"></i> Твои отряды</span><span><i class="dot enemy"></i> Противник</span><span>${BIOME_NAMES[b.map.biome]} · seed ${b.map.seed}</span><span>Здания и скалы блокируют движение и обстрел</span><span>Высоты: темнее — выше</span><div class="battle-overlays"><button class="secondary" data-action="toggle-orders" aria-pressed="${showOrders}">Приказы: ${showOrders?'все':'выбранный'}</button><button class="secondary" data-action="toggle-names" aria-pressed="${showNames}">Названия: ${showNames?'вкл':'выкл'}</button></div>`;
@@ -98,11 +98,11 @@ function renderModal(){
   if(dialog==='retreat'){title='Приказать отступление?';body='<p>Бой завершится поражением. Выжившие вернутся в Рим с текущими потерями.</p><button class="primary full" data-action="confirm-retreat">Отступить</button>';}
   container.innerHTML=`<div class="backdrop"><section class="dialog ${dialog==='catalog'?'wide':''}" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><div class="section-top"><h2 id="dialog-title">${title}</h2><button class="icon-button" data-action="close" aria-label="Закрыть">×</button></div>${body}<button class="secondary full" data-action="close">${dialog==='reset'||dialog==='retreat'?'Отмена':'Понятно'}</button></section></div>`;
 }
-function nearestEnemy(u:{side:string;x:number;y:number}){return battle?.units.filter(v=>v.side!==u.side&&alive(v)&&visibleEnemies(battle!).has(v.id)).sort((a,b)=>distance(u,a)-distance(u,b))[0];}
+function nearestEnemy(u                                ){return battle?.units.filter(v=>v.side!==u.side&&alive(v)&&visibleEnemies(battle ).has(v.id)).sort((a,b)=>distance(u,a)-distance(u,b))[0];}
 function startBattle(training=false,automatic=false){
   if(battle)return;if(!training&&!canBattle(campaign)){showToast('Сначала подойди к армии бойев у Фельсины.');return;}
   battle=training?trainingBattle(trainingBiome,trainingSeed,trainingMission):createBattle(campaign.army,campaign.enemy,false,automatic,encounterMap(campaign.enemyPosition,campaign.day));
-  selectedUnit=battle.units.find(u=>u.side==='rome')!.id;selectedUnits=[selectedUnit];inspectedUnit=selectedUnit;paused=true;speed=1;accumulator=0;
+  selectedUnit=battle.units.find(u=>u.side==='rome') .id;selectedUnits=[selectedUnit];inspectedUnit=selectedUnit;paused=true;speed=1;accumulator=0;
   if(automatic){autoBattle(battle);}
   persist();render();
 }
@@ -113,7 +113,7 @@ function finishBattle(){
   }
   battle=null;selectedUnit=null;selectedUnits=[];selectedCity=campaign.won?'felsina':'rome';paused=true;dialog=null;persist();render();
 }
-function onMap(p:Point,shift:boolean,right=false,facing?:number){
+function onMap(p      ,shift        ,right=false,facing        ){
   if(dialog||battle?.winner)return;
   if(!battle){
     const city=campaign.cities.find(c=>distance(c,p)<26);
@@ -124,20 +124,20 @@ function onMap(p:Point,shift:boolean,right=false,facing?:number){
   }
   const hit=battle.units.find(u=>u.men>=1&&u.side==='rome'&&distance(u,p)<30);
   if(!right&&hit){if(shift){selectedUnits=selectedUnits.includes(hit.id)?selectedUnits.filter(id=>id!==hit.id):[...selectedUnits,hit.id];}else selectedUnits=[hit.id];selectedUnit=selectedUnits[0]??null;inspectedUnit=hit.id;render();focusInspector();return;}
-  if((right||!battle.units.some(u=>u.side==='boii'&&visibleEnemies(battle!).has(u.id)&&distance(u,p)<30))&&selectedUnits.length>1){const error=groupOrder(battle,selectedUnits,p,shift,facing);if(error)showToast(error);else inspectedUnit=selectedUnit;persist();render();return;}
+  if((right||!battle.units.some(u=>u.side==='boii'&&visibleEnemies(battle ).has(u.id)&&distance(u,p)<30))&&selectedUnits.length>1){const error=groupOrder(battle,selectedUnits,p,shift,facing);if(error)showToast(error);else inspectedUnit=selectedUnit;persist();render();return;}
   const result=battleClick(battle,selectedUnit,p,shift,right,facing);
   selectedUnit=result.selected;if(result.inspected)inspectedUnit=result.inspected;else if(result.changed)inspectedUnit=selectedUnit;
   if(result.error)showToast(result.error);
   persist();render();if(result.inspected||result.changed)focusInspector();
 }
-function selectBox(a:Point,z:Point,append:boolean){if(!battle||dialog||battle.winner)return;
+function selectBox(a      ,z      ,append        ){if(!battle||dialog||battle.winner)return;
  const ids=battle.units.filter(u=>u.side==='rome'&&alive(u)&&u.x>=Math.min(a.x,z.x)&&u.x<=Math.max(a.x,z.x)&&u.y>=Math.min(a.y,z.y)&&u.y<=Math.max(a.y,z.y)).map(u=>u.id);
  selectedUnits=append?[...new Set([...selectedUnits,...ids])]:ids;selectedUnit=selectedUnits[0]??null;inspectedUnit=selectedUnit;render();focusInspector();
 }
-root.addEventListener('toggle',event=>{if((event.target as HTMLElement).id==='enemy-roster')enemyRosterOpen=(event.target as HTMLDetailsElement).open;},true);
+root.addEventListener('toggle',event=>{if((event.target               ).id==='enemy-roster')enemyRosterOpen=(event.target                      ).open;},true);
 root.addEventListener('click',event=>{
-  const button=(event.target as HTMLElement).closest<HTMLButtonElement>('button[data-action]');if(!button||button.disabled)return;
-  const action=button.dataset.action!,id=button.dataset.id!;
+  const button=(event.target               ).closest                   ('button[data-action]');if(!button||button.disabled)return;
+  const action=button.dataset.action ,id=button.dataset.id ;
   if(action==='zoom-in'||action==='zoom-out'){scene.zoomBy(action==='zoom-in'?1.3:1/1.3);return;}
   if(action==='overview'){scene.overview();return;}
   if(action==='focus-army'){scene.focus();return;}
@@ -145,26 +145,26 @@ root.addEventListener('click',event=>{
   if(action==='close'){dialog=null;render();return;}
   if(action==='confirm-reset'){campaign=newCampaign();battle=null;selectedCity='rome';selectedUnit=null;selectedUnits=[];Object.keys(groups).forEach(k=>delete groups[k]);inspectedUnit=null;dialog=null;paused=true;speed=1;accumulator=0;trainingBiome='plain';trainingSeed=1337;showOrders=true;showNames=true;enemyRosterOpen=false;persist();render();scene.overview();return;}
   if(action==='training'){startBattle(true);return;}
-  if(action==='regenerate'&&battle?.training){const biome=(el('training-biome') as HTMLSelectElement).value as Biome;const seed=Number((el('training-seed') as HTMLInputElement).value);if(!Number.isInteger(seed)||seed<0||seed>4294967295){showToast('Seed должен быть целым числом от 0 до 4294967295.');return;}trainingBiome=biome;trainingSeed=seed;trainingMission=(el('training-mission') as HTMLSelectElement).value as Mission;battle=trainingBattle(biome,seed,trainingMission);selectedUnit=battle.units[0].id;selectedUnits=[selectedUnit];Object.keys(groups).forEach(k=>delete groups[k]);inspectedUnit=selectedUnit;paused=true;accumulator=0;persist();render();return;}
+  if(action==='regenerate'&&battle?.training){const biome=(el('training-biome')                     ).value         ;const seed=Number((el('training-seed')                    ).value);if(!Number.isInteger(seed)||seed<0||seed>4294967295){showToast('Seed должен быть целым числом от 0 до 4294967295.');return;}trainingBiome=biome;trainingSeed=seed;trainingMission=(el('training-mission')                     ).value           ;battle=trainingBattle(biome,seed,trainingMission);selectedUnit=battle.units[0].id;selectedUnits=[selectedUnit];Object.keys(groups).forEach(k=>delete groups[k]);inspectedUnit=selectedUnit;paused=true;accumulator=0;persist();render();return;}
   if(action==='finish'){finishBattle();return;}
   if(action==='retreat'){if(battle?.training){finishBattle();return;}paused=true;dialog='retreat';render();return;}
   if(action==='confirm-retreat'&&battle){battle.winner='boii';battle.reason='Римский командующий приказал отступить.';dialog=null;persist();render();return;}
   if(!battle){
     if(action==='city'){selectedCity=id;}
-    if(action==='unit'){selectedUnit=id;showToast(TYPES[campaign.army.find(u=>u.id===id)!.type].description);}
-    if(action==='recruit'){const error=recruit(campaign,id,button.dataset.type as keyof typeof TYPES);showToast(error??'Отряд нанят.');}
+    if(action==='unit'){selectedUnit=id;showToast(TYPES[campaign.army.find(u=>u.id===id) .type].description);}
+    if(action==='recruit'){const error=recruit(campaign,id,button.dataset.type                      );showToast(error??'Отряд нанят.');}
     if(action==='replenish')showToast(replenish(campaign)??'Пополнение прибыло.');
     if(action==='next-day')nextDay(campaign);
     if(action==='stop-march')campaign.route=[];
-    if(action==='march-city'){const city=campaign.cities.find(c=>c.id===id)!;const error=setDestination(campaign,city);if(error)showToast(error);}
+    if(action==='march-city'){const city=campaign.cities.find(c=>c.id===id) ;const error=setDestination(campaign,city);if(error)showToast(error);}
     if(action==='battle'||action==='autobattle'){startBattle(false,action==='autobattle');return;}
   }else if(!battle.winner){
     const unit=battle.units.find(u=>u.id===selectedUnit);
-    if(action==='unit'){if((event as MouseEvent).shiftKey)selectedUnits=selectedUnits.includes(id)?selectedUnits.filter(x=>x!==id):[...selectedUnits,id];else selectedUnits=[id];selectedUnit=selectedUnits[0]??null;inspectedUnit=id;const focus=battle.units.find(u=>u.id===id);if(focus)scene.focus(focus);}
+    if(action==='unit'){if((event              ).shiftKey)selectedUnits=selectedUnits.includes(id)?selectedUnits.filter(x=>x!==id):[...selectedUnits,id];else selectedUnits=[id];selectedUnit=selectedUnits[0]??null;inspectedUnit=id;const focus=battle.units.find(u=>u.id===id);if(focus)scene.focus(focus);}
     if(action==='inspect'&&visibleEnemies(battle).has(id))inspectedUnit=id;
     const picked=battle.units.filter(u=>selectedUnits.includes(u.id)&&u.side==='rome'&&alive(u));
-    if(action==='formation')picked.forEach(u=>setFormation(u,button.dataset.value as Formation));
-    if(action==='pace')picked.forEach(u=>u.pace=button.dataset.value as 'walk'|'run');
+    if(action==='formation')picked.forEach(u=>setFormation(u,button.dataset.value             ));
+    if(action==='pace')picked.forEach(u=>u.pace=button.dataset.value                );
     if(action==='fire'){const enabled=!(unit?.fireAtWill??true);picked.forEach(u=>u.fireAtWill=enabled);}
     if(action==='toggle-orders')showOrders=!showOrders;
     if(action==='toggle-names')showNames=!showNames;
@@ -178,15 +178,15 @@ root.addEventListener('click',event=>{
   persist();render();if(battle&&(action==='unit'||action==='inspect'))focusInspector();
 });
 document.addEventListener('keydown',event=>{
-  if((event.target as HTMLElement).matches('input,textarea,select')||event.repeat)return;
+  if((event.target               ).matches('input,textarea,select')||event.repeat)return;
   if(['KeyW','KeyA','KeyS','KeyD'].includes(event.code)&&!dialog){event.preventDefault();scene.keys.add(event.code);scene.panKeys(.05);}
-  if(/^Digit[1-9]$/.test(event.code)&&battle&&!dialog){event.preventDefault();const key=event.code.slice(-1);if(event.ctrlKey){groups[key]=[...selectedUnits];showToast('Группа '+key+' сохранена.');}else{selectedUnits=(groups[key]??[]).filter(id=>battle!.units.some(u=>u.id===id&&alive(u)));selectedUnit=selectedUnits[0]??null;inspectedUnit=selectedUnit;render();focusInspector();}}
+  if(/^Digit[1-9]$/.test(event.code)&&battle&&!dialog){event.preventDefault();const key=event.code.slice(-1);if(event.ctrlKey){groups[key]=[...selectedUnits];showToast('Группа '+key+' сохранена.');}else{selectedUnits=(groups[key]??[]).filter(id=>battle .units.some(u=>u.id===id&&alive(u)));selectedUnit=selectedUnits[0]??null;inspectedUnit=selectedUnit;render();focusInspector();}}
   if(event.code==='Escape'){dialog=null;render();}
   if(event.code==='Space'&&battle&&!battle.winner&&!dialog){event.preventDefault();toggleTime();persist();render();}
 });
 document.addEventListener('keyup',event=>scene.keys.delete(event.code));
 window.addEventListener('blur',()=>scene.keys.clear());
-function tick(delta:number){if(dialog)scene.keys.clear();
+function tick(delta       ){if(dialog)scene.keys.clear();
   if(battle?.phase==='combat'&&!paused&&!dialog&&!battle.winner){accumulator+=delta*speed;let steps=0;while(accumulator>=BATTLE_STEP&&steps<12){stepBattle(battle);accumulator-=BATTLE_STEP;steps++;if(battle.winner){paused=true;persist();render();break;}}}
   uiTime+=delta;saveTime+=delta;if(uiTime>.5){uiTime=0;if(battle&&!paused&&!dialog&&!battle.winner)render();}if(saveTime>3){saveTime=0;persist();}
 }

@@ -1,20 +1,20 @@
-import type { Battle, BattleUnit, Order } from './battle.ts';
-import { alive, visibleEnemies, FORMATIONS } from './battle.ts';
-import { TYPES } from './data.ts';
-import type { Point } from './data.ts';
-import { distance } from './campaign.ts';
-import { blocked, battlePath } from './terrain.ts';
+                                                             
+import { alive, visibleEnemies, FORMATIONS } from './battle.7462b6a68309.js';
+import { TYPES } from './data.7462b6a68309.js';
+                                       
+import { distance } from './campaign.7462b6a68309.js';
+import { blocked, battlePath } from './terrain.7462b6a68309.js';
 
-export function issueOrder(u:BattleUnit,order:Order,append=false){
+export function issueOrder(u           ,order      ,append=false){
   if(append&&u.order.kind!=='hold'){if(u.queue.length>=24)return false;u.queue.push(order);}
   else {u.order=order;u.queue=[];u.nav=[];u.navGoal=undefined;}
   return true;
 }
-export function battleClick(b:Battle,selectedId:string|null,p:Point,shift=false,right=false,facing?:number){
+export function battleClick(b       ,selectedId            ,p      ,shift=false,right=false,facing        ){
   const visible=visibleEnemies(b);
   const hit=b.units.filter(u=>u.men>=1&&!u.escaped&&(u.side==='rome'||visible.has(u.id))&&distance(u,p)<30).sort((a,z)=>distance(a,p)-distance(z,p))[0];
   const selected=b.units.find(u=>u.id===selectedId&&u.side==='rome');
-  const result={selected:selectedId,inspected:null as string|null,error:'',changed:false};
+  const result={selected:selectedId,inspected:null               ,error:'',changed:false};
   if(!right&&hit){result.inspected=hit.id;if(hit.side==='rome')result.selected=hit.id;return result;}
   if(!selected||!alive(selected)){result.error='Выбери боеспособный римский отряд.';return result;}
   if(b.phase==='deployment'){
@@ -33,14 +33,14 @@ export function battleClick(b:Battle,selectedId:string|null,p:Point,shift=false,
   if(result.changed&&selected.queue.length===0){selected.nav=path;selected.navGoal=goal;}return result;
 }
 // Slots form a line perpendicular to the requested front; the group keeps spacing.
-export function groupSlots(b:Battle,ids:string[],p:Point,facing=0){
-  const units=ids.map(id=>b.units.find(u=>u.id===id)).filter((u):u is BattleUnit=>!!u&&u.side==='rome'&&alive(u));
+export function groupSlots(b       ,ids         ,p      ,facing=0){
+  const units=ids.map(id=>b.units.find(u=>u.id===id)).filter((u)                =>!!u&&u.side==='rome'&&alive(u));
   const gap=Math.max(80,...units.map(u=>FORMATIONS[u.formation].width+16));
   return units.map((u,i)=>({u,p:{x:p.x-Math.sin(facing)*(i-(units.length-1)/2)*gap,y:p.y+Math.cos(facing)*(i-(units.length-1)/2)*gap}}));
 }
-export function groupOrder(b:Battle,ids:string[],p:Point,append=false,facing?:number){
+export function groupOrder(b       ,ids         ,p      ,append=false,facing        ){
   const visible=visibleEnemies(b),enemy=b.units.find(u=>u.side==='boii'&&alive(u)&&visible.has(u.id)&&distance(u,p)<30);
-  const units=ids.map(id=>b.units.find(u=>u.id===id)).filter((u):u is BattleUnit=>!!u&&alive(u)&&u.side==='rome');
+  const units=ids.map(id=>b.units.find(u=>u.id===id)).filter((u)                =>!!u&&alive(u)&&u.side==='rome');
   if(enemy&&b.phase==='combat'){units.forEach(u=>issueOrder(u,{kind:'attack',target:enemy.id},append));return '';}
   const center=units.length?{x:units.reduce((n,u)=>n+u.x,0)/units.length,y:units.reduce((n,u)=>n+u.y,0)/units.length}:p;
   const angle=facing??Math.atan2(p.y-center.y,p.x-center.x),slots=groupSlots(b,ids,p,angle);
@@ -55,7 +55,7 @@ export function groupOrder(b:Battle,ids:string[],p:Point,append=false,facing?:nu
   for(const {u,p:goal} of slots){if(b.phase==='deployment'){u.x=goal.x;u.y=goal.y;u.angle=angle;issueOrder(u,{kind:'hold'});}else issueOrder(u,{kind:'move',...goal,facing:angle},append);}
   return '';
 }
-export function orderText(b:Battle,u:BattleUnit){
+export function orderText(b       ,u           ){
   if(u.men<1)return 'Отряд уничтожен';if(u.escaped)return 'Вышел из боя';if(u.routed)return 'Бегство';
   const text=u.order.kind==='hold'?'Удерживает позицию':u.order.kind==='move'?'Движение к точке':'Атака: '+(TYPES[b.units.find(v=>u.order.kind==='attack'&&v.id===u.order.target)?.type??u.type].short);
   return text+(u.queue.length?` · в очереди: ${u.queue.length}`:'');
