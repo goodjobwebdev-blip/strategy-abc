@@ -1,55 +1,55 @@
 import Phaser from 'phaser';
-import { fitZoom, cameraCenter, zoomAnchor } from './camera.ts';
-import { LAND, ITALY, MOUNTAINS, ROADS, TYPES, WORLD_FORESTS, RIVERS, project } from './data.ts';
-import type { Point } from './data.ts';
-import type { Campaign } from './campaign.ts';
-import { distance, inPolygon } from './campaign.ts';
-import { visibleEnemies, canSee, alive, FORMATIONS } from './battle.ts';
-import { groupSlots } from './controls.ts';
-import type { Battle, BattleUnit } from './battle.ts';
-import type { BattleMap } from './terrain.ts';
-import { BIOME_NAMES, RELIEF_NAMES, heightAt, mapForest, contourLines } from './terrain.ts';
-export interface ViewState { selectedUnits:string[];campaign:Campaign; battle:Battle|null; selectedUnit:string|null; selectedCity:string|null;inspectedUnit:string|null;showOrders:boolean;showNames:boolean }
+import { fitZoom, cameraCenter, zoomAnchor } from './camera.96af497c9f44.js';
+import { LAND, ITALY, MOUNTAINS, ROADS, TYPES, WORLD_FORESTS, RIVERS, project } from './data.96af497c9f44.js';
+                                       
+                                              
+import { distance, inPolygon } from './campaign.96af497c9f44.js';
+import { visibleEnemies, canSee, alive, FORMATIONS } from './battle.96af497c9f44.js';
+import { groupSlots } from './controls.96af497c9f44.js';
+                                                      
+                                              
+import { BIOME_NAMES, RELIEF_NAMES, heightAt, mapForest, contourLines } from './terrain.96af497c9f44.js';
+                                                                                                                                                                                                              
 const ROMAN=0xa94436,ENEMY=0x426d86;
 export class MapScene extends Phaser.Scene {
-  graphics!: Phaser.GameObjects.Graphics;
-  labels:Phaser.GameObjects.Text[]=[];
+  graphics                              ;
+  labels                          =[];
   labelIndex=0;
   elapsedRender=0;
-  cachedMap:BattleMap|null=null;
-  contours:Point[][]=[];
+  cachedMap               =null;
+  contours          =[];
   cameraWorld={width:1000,height:650};
-  cameraPosition:Point={x:500,y:325};
+  cameraPosition      ={x:500,y:325};
   cameraZoom=1;
-  cameraBattle:Battle|null=null;
-  gesture:{kind:'pan'|'order'|'select';screen:Point;world:Point;center:Point;shift:boolean;end?:Point}|null=null;
-  state:()=>ViewState;
-  onPoint:(p:Point,shift:boolean,right:boolean,facing?:number)=>void;
-  onTick:(delta:number)=>void;
-  onSelect:(a:Point,z:Point,append:boolean)=>void;
-  keys=new Set<string>();
-  constructor(state:()=>ViewState,onPoint:(p:Point,shift:boolean,right:boolean,facing?:number)=>void,onTick:(delta:number)=>void,onSelect:(a:Point,z:Point,append:boolean)=>void){super('map');this.state=state;this.onPoint=onPoint;this.onTick=onTick;this.onSelect=onSelect;}
+  cameraBattle            =null;
+  gesture                                                                                                  =null;
+  state              ;
+  onPoint                                                           ;
+  onTick                     ;
+  onSelect                                       ;
+  keys=new Set        ();
+  constructor(state              ,onPoint                                                           ,onTick                     ,onSelect                                       ){super('map');this.state=state;this.onPoint=onPoint;this.onTick=onTick;this.onSelect=onSelect;}
   create(){
     this.graphics=this.add.graphics();
     this.scale.on('resize',()=>this.overview());
-    this.input.on('pointerdown',(p:Phaser.Input.Pointer)=>{
+    this.input.on('pointerdown',(p                     )=>{
       const world=this.cameras.main.getWorldPoint(p.x,p.y);
       if(p.middleButtonDown()||p.event.altKey){this.gesture={kind:'pan',screen:{x:p.x,y:p.y},world,center:{...this.cameraPosition},shift:false};return;}
       if(p.rightButtonDown()){this.gesture={kind:'order',screen:{x:p.x,y:p.y},world,center:{...this.cameraPosition},shift:p.event.shiftKey};return;}
       this.gesture={kind:'select',screen:{x:p.x,y:p.y},world,center:{...this.cameraPosition},shift:p.event.shiftKey};
     });
-    this.input.on('pointermove',(p:Phaser.Input.Pointer)=>{
+    this.input.on('pointermove',(p                     )=>{
       if(this.gesture?.kind==='order'||this.gesture?.kind==='select')this.gesture.end=this.cameras.main.getWorldPoint(p.x,p.y);
       if(this.gesture?.kind==='pan'){this.cameraPosition={x:this.gesture.center.x-(p.x-this.gesture.screen.x)/this.cameraZoom,y:this.gesture.center.y-(p.y-this.gesture.screen.y)/this.cameraZoom};this.applyCamera();}
     });
-    this.input.on('pointerup',(p:Phaser.Input.Pointer)=>{
+    this.input.on('pointerup',(p                     )=>{
       const gesture=this.gesture;this.gesture=null;if(!gesture||gesture.kind==='pan')return;
       const end=this.cameras.main.getWorldPoint(p.x,p.y),drag=Math.hypot(p.x-gesture.screen.x,p.y-gesture.screen.y)>8;
       if(gesture.kind==='select'){if(drag&&this.state().battle)this.onSelect(gesture.world,end,gesture.shift);else this.onPoint(gesture.world,gesture.shift,false);return;}
       this.onPoint(gesture.world,gesture.shift,true,drag?Math.atan2(end.y-gesture.world.y,end.x-gesture.world.x):undefined);
     });
     this.input.on('pointerupoutside',()=>{this.gesture=null;});
-    this.input.on('wheel',(p:Phaser.Input.Pointer,_objects:unknown,_dx:number,dy:number)=>this.zoomBy(dy>0?.85:1.18,this.cameras.main.getWorldPoint(p.x,p.y)));
+    this.input.on('wheel',(p                     ,_objects        ,_dx       ,dy       )=>this.zoomBy(dy>0?.85:1.18,this.cameras.main.getWorldPoint(p.x,p.y)));
     this.overview();this.draw();
   }
   applyCamera(){
@@ -63,11 +63,11 @@ export class MapScene extends Phaser.Scene {
     const cam=this.cameras.main;this.cameraZoom=fitZoom(cam.width,cam.height,this.cameraWorld.width,this.cameraWorld.height);
     this.cameraPosition={x:this.cameraWorld.width/2,y:this.cameraWorld.height/2};this.applyCamera();
   }
-  zoomBy(factor:number,anchor:Point=this.cameraPosition){
+  zoomBy(factor       ,anchor      =this.cameraPosition){
     const cam=this.cameras.main,fit=fitZoom(cam.width,cam.height,this.cameraWorld.width,this.cameraWorld.height),next=Math.max(fit,Math.min(fit*6,this.cameraZoom*factor));
     this.cameraPosition=zoomAnchor(this.cameraPosition,anchor,this.cameraZoom,next);this.cameraZoom=next;this.applyCamera();
   }
-  focus(point?:Point){
+  focus(point       ){
     const s=this.state(),units=s.battle?.units.filter(u=>u.side==='rome'&&u.men>=1)??[];
     const cam=this.cameras.main,fit=fitZoom(cam.width,cam.height,this.cameraWorld.width,this.cameraWorld.height);
     if(!point&&units.length){
@@ -77,17 +77,17 @@ export class MapScene extends Phaser.Scene {
     }else{this.cameraPosition=point??s.campaign.position;this.cameraZoom=Math.max(this.cameraZoom,fit*2.3);}
     this.applyCamera();
   }
-  panKeys(seconds:number){const dx=Number(this.keys.has('KeyD'))-Number(this.keys.has('KeyA')),dy=Number(this.keys.has('KeyS'))-Number(this.keys.has('KeyW')),speed=650*seconds/this.cameraZoom/Math.max(1,Math.hypot(dx,dy));this.cameraPosition.x+=dx*speed;this.cameraPosition.y+=dy*speed;this.applyCamera();}
-  update(_time:number,delta:number){if(this.keys.size)this.panKeys(Math.min(delta/1000,.1));this.onTick(Math.min(delta/1000,.25));this.elapsedRender+=delta;if(this.elapsedRender>70){this.elapsedRender=0;this.draw();}}
-  label(x:number,y:number,text:string,size=13,color='#4a5446',align='center'){
+  panKeys(seconds       ){const dx=Number(this.keys.has('KeyD'))-Number(this.keys.has('KeyA')),dy=Number(this.keys.has('KeyS'))-Number(this.keys.has('KeyW')),speed=650*seconds/this.cameraZoom/Math.max(1,Math.hypot(dx,dy));this.cameraPosition.x+=dx*speed;this.cameraPosition.y+=dy*speed;this.applyCamera();}
+  update(_time       ,delta       ){if(this.keys.size)this.panKeys(Math.min(delta/1000,.1));this.onTick(Math.min(delta/1000,.25));this.elapsedRender+=delta;if(this.elapsedRender>70){this.elapsedRender=0;this.draw();}}
+  label(x       ,y       ,text       ,size=13,color='#4a5446',align='center'){
     let label=this.labels[this.labelIndex];
     if(!label){label=this.add.text(x,y,text,{fontFamily:'Arial',fontSize:size,color,align});this.labels.push(label);}
     label.setPosition(x,y).setText(text).setStyle({fontSize:size,color,align}).setOrigin(align==='left'?0:align==='right'?1:.5,.5).setVisible(true);this.labelIndex++;
   }
-  poly(points:Point[],fill:number,line?:number){const g=this.graphics;g.fillStyle(fill);g.fillPoints(points,true);if(line){g.lineStyle(2,line);g.strokePoints(points,true);}}
-  line(points:Point[],color:number,width=2,alpha=1){if(!points.length)return;const g=this.graphics;g.lineStyle(width,color,alpha);g.beginPath();g.moveTo(points[0].x,points[0].y);points.slice(1).forEach(p=>g.lineTo(p.x,p.y));g.strokePath();}
+  poly(points        ,fill       ,line        ){const g=this.graphics;g.fillStyle(fill);g.fillPoints(points,true);if(line){g.lineStyle(2,line);g.strokePoints(points,true);}}
+  line(points        ,color       ,width=2,alpha=1){if(!points.length)return;const g=this.graphics;g.lineStyle(width,color,alpha);g.beginPath();g.moveTo(points[0].x,points[0].y);points.slice(1).forEach(p=>g.lineTo(p.x,p.y));g.strokePath();}
   draw(){const s=this.state(),g=this.graphics;if(this.cameraBattle!==s.battle){this.cameraBattle=s.battle;this.overview();}g.clear();this.labelIndex=0;if(s.battle)this.battleMap(s.battle,s.selectedUnit,s.inspectedUnit,s.showOrders,s.showNames);else this.campaignMap(s.campaign,s.selectedCity);for(let i=this.labelIndex;i<this.labels.length;i++)this.labels[i].setVisible(false);}
-  campaignMap(c:Campaign,selectedCity:string|null){
+  campaignMap(c         ,selectedCity            ){
     const g=this.graphics;g.fillStyle(0x9cbec1);g.fillRect(0,0,1000,650);
     g.lineStyle(1,0xffffff,.12);for(let x=0;x<=1000;x+=50)g.lineBetween(x,0,x,650);for(let y=0;y<=650;y+=50)g.lineBetween(0,y,1000,y);
     LAND.forEach(p=>this.poly(p,0xd1d0b6,0xa7b29a));
@@ -107,7 +107,7 @@ export class MapScene extends Phaser.Scene {
     for(const city of c.cities){
       if(city.id===selectedCity){g.lineStyle(2,0xcaa85c);g.strokeCircle(city.x,city.y,20);}
       g.fillStyle(city.owner==='rome'?ROMAN:ENEMY);g.fillCircle(city.x,city.y,9);g.lineStyle(2,0xfff8df);g.strokeCircle(city.x,city.y,9);
-      const offsets:Record<string,[number,number]>={rome:[-18,5],felsina:[-15,-3],arretium:[-15,-7],perusia:[-15,5],narnia:[15,5],capua:[-15,-7],neapolis:[-15,9],tarentum:[-15,12],brundisium:[16,-8]};
+      const offsets                               ={rome:[-18,5],felsina:[-15,-3],arretium:[-15,-7],perusia:[-15,5],narnia:[15,5],capua:[-15,-7],neapolis:[-15,9],tarentum:[-15,12],brundisium:[16,-8]};
       const [dx,dy]=offsets[city.id]??[15,0];
       this.label(city.x+dx,city.y+dy,city.name,city.id===selectedCity?14:12,'#293d37',dx<0?'right':'left');
     }
@@ -117,7 +117,7 @@ export class MapScene extends Phaser.Scene {
     this.label(22,622,'СЕКТОР I · ИТАЛИЯ · БЕРЕГОВАЯ ЛИНИЯ NATURAL EARTH',10,'#456566','left');
     this.label(930,35,'СЕВЕР ↑',12,'#456566');
   }
-  battleMap(b:Battle,selected:string|null,inspected:string|null,showOrders:boolean,showNames:boolean){
+  battleMap(b       ,selected            ,inspected            ,showOrders        ,showNames        ){
     const map=b.map,w=map.width,h=map.height,g=this.graphics;g.fillStyle(0xe2dbc1);g.fillRect(0,0,w,h);
     g.lineStyle(1,0xb5b195,.25);for(let x=0;x<=w;x+=40)g.lineBetween(x,0,x,h);for(let y=0;y<=h;y+=40)g.lineBetween(0,y,w,y);
 
@@ -149,24 +149,24 @@ export class MapScene extends Phaser.Scene {
     if(this.gesture?.kind==='order'&&this.gesture.end){const angle=Math.atan2(this.gesture.end.y-this.gesture.world.y,this.gesture.end.x-this.gesture.world.x);for(const slot of groupSlots(b,this.state().selectedUnits,this.gesture.world,angle,this.gesture.shift))this.footprint(slot.p,slot.facing,slot.u.formation,0x9b7b30,.85);}
     for(const u of b.units)if(u.men>=1&&!u.escaped&&(u.side==='rome'||visible.has(u.id)))this.unit(u,this.state().selectedUnits.includes(u.id),u.id===inspected&&u.side==='boii',showNames);
   }
-  arrow(points:Point[],color:number,width:number,alpha:number){
+  arrow(points        ,color       ,width       ,alpha       ){
     this.line(points,color,width,alpha);if(points.length<2)return;
     const end=points[points.length-1],prev=points[points.length-2],angle=Math.atan2(end.y-prev.y,end.x-prev.x);
     this.line([{x:end.x-12*Math.cos(angle-.5),y:end.y-12*Math.sin(angle-.5)},end,{x:end.x-12*Math.cos(angle+.5),y:end.y-12*Math.sin(angle+.5)}],color,width,alpha);
   }
-  order(b:Battle,u:BattleUnit,selected:boolean){
+  order(b       ,u           ,selected        ){
     const g=this.graphics,alpha=selected?.95:.45,width=selected?2.5:1.5;
     if(u.order.kind==='hold'){g.lineStyle(width,ROMAN,alpha);g.strokeCircle(u.x,u.y,29);return;}
-    if(u.queue.length){let prev:Point=u.order.kind==='move'?u.order:u;let n=1;for(const q of u.queue){if(q.kind==='move'){this.arrow([prev,q],0x5c7852,width,alpha*.75);this.footprint(q,q.facing??0,u.formation,0x5c7852,alpha*.75);this.label(q.x,q.y-42,String(++n),13,'#4c6845');prev=q;}}}
+    if(u.queue.length){let prev      =u.order.kind==='move'?u.order:u;let n=1;for(const q of u.queue){if(q.kind==='move'){this.arrow([prev,q],0x5c7852,width,alpha*.75);this.footprint(q,q.facing??0,u.formation,0x5c7852,alpha*.75);this.label(q.x,q.y-42,String(++n),13,'#4c6845');prev=q;}}}
     if(u.order.kind==='move'){
       const path=u.nav?.length?[u,...u.nav,u.order]:[u,u.order];this.arrow(path,0x5c7852,width,alpha);
       this.footprint(u.order,u.order.facing??Math.atan2(u.order.y-u.y,u.order.x-u.x),u.formation,0x5c7852,alpha);
       if(u.order.facing!==undefined)this.arrow([{x:u.order.x,y:u.order.y},{x:u.order.x+Math.cos(u.order.facing)*55,y:u.order.y+Math.sin(u.order.facing)*55}],0x5c7852,2,alpha);
-    }else{const target=b.units.find(v=>v.id===(u.order as {target:string}).target);if(target&&visibleEnemies(b).has(target.id)){this.arrow([u,target],ROMAN,width,alpha);g.lineStyle(width,ROMAN,alpha);g.strokeCircle(target.x,target.y,32);}}
+    }else{const target=b.units.find(v=>v.id===(u.order                   ).target);if(target&&visibleEnemies(b).has(target.id)){this.arrow([u,target],ROMAN,width,alpha);g.lineStyle(width,ROMAN,alpha);g.strokeCircle(target.x,target.y,32);}}
 
   }
-  footprint(p:Point,angle:number,formation:BattleUnit['formation'],color:number,alpha:number){const f=FORMATIONS[formation],points=[{x:-f.depth/2,y:-f.width/2},{x:f.depth/2,y:-f.width/2},{x:f.depth/2,y:f.width/2},{x:-f.depth/2,y:f.width/2}].map(q=>({x:p.x+q.x*Math.cos(angle)-q.y*Math.sin(angle),y:p.y+q.x*Math.sin(angle)+q.y*Math.cos(angle)}));this.graphics.lineStyle(2,color,alpha);this.graphics.strokePoints(points,true);this.arrow([p,{x:p.x+Math.cos(angle)*50,y:p.y+Math.sin(angle)*50}],color,2,alpha);}
-  unit(u:BattleUnit,selected:boolean,inspected:boolean,showNames:boolean){
+  footprint(p      ,angle       ,formation                        ,color       ,alpha       ){const f=FORMATIONS[formation],points=[{x:-f.depth/2,y:-f.width/2},{x:f.depth/2,y:-f.width/2},{x:f.depth/2,y:f.width/2},{x:-f.depth/2,y:f.width/2}].map(q=>({x:p.x+q.x*Math.cos(angle)-q.y*Math.sin(angle),y:p.y+q.x*Math.sin(angle)+q.y*Math.cos(angle)}));this.graphics.lineStyle(2,color,alpha);this.graphics.strokePoints(points,true);this.arrow([p,{x:p.x+Math.cos(angle)*50,y:p.y+Math.sin(angle)*50}],color,2,alpha);}
+  unit(u           ,selected        ,inspected        ,showNames        ){
     const g=this.graphics,def=TYPES[u.type],color=u.side==='rome'?ROMAN:ENEMY;
     const f=FORMATIONS[u.formation],depth=f.depth/2,width=f.width/2;
     const rect=[{x:-depth,y:-width},{x:depth,y:-width},{x:depth,y:width},{x:-depth,y:width}].map(p=>({x:u.x+p.x*Math.cos(u.angle)-p.y*Math.sin(u.angle),y:u.y+p.x*Math.sin(u.angle)+p.y*Math.cos(u.angle)}));
