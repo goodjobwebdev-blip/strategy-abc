@@ -64,9 +64,13 @@ export class MapScene extends Phaser.Scene {
   }
   focus(point       ){
     const s=this.state(),units=s.battle?.units.filter(u=>u.side==='rome'&&u.men>=1)??[];
-    const target=point??(units.length?{x:units.reduce((n,u)=>n+u.x,0)/units.length,y:units.reduce((n,u)=>n+u.y,0)/units.length}:s.campaign.position);
     const cam=this.cameras.main,fit=fitZoom(cam.width,cam.height,this.cameraWorld.width,this.cameraWorld.height);
-    this.cameraZoom=Math.max(this.cameraZoom,fit*2.3);this.cameraPosition=target;this.applyCamera();
+    if(!point&&units.length){
+      const minX=Math.min(...units.map(u=>u.x)),maxX=Math.max(...units.map(u=>u.x)),minY=Math.min(...units.map(u=>u.y)),maxY=Math.max(...units.map(u=>u.y));
+      this.cameraPosition={x:(minX+maxX)/2,y:(minY+maxY)/2};
+      this.cameraZoom=Math.max(fit,Math.min(fit*2.3,cam.width/(maxX-minX+180),cam.height/(maxY-minY+180)));
+    }else{this.cameraPosition=point??s.campaign.position;this.cameraZoom=Math.max(this.cameraZoom,fit*2.3);}
+    this.applyCamera();
   }
   update(_time       ,delta       ){this.onTick(Math.min(delta/1000,.25));this.elapsedRender+=delta;if(this.elapsedRender>70){this.elapsedRender=0;this.draw();}}
   label(x       ,y       ,text       ,size=13,color='#4a5446',align='center'){
