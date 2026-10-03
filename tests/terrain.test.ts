@@ -38,6 +38,6 @@ test('geography supplies the correct encounter kind and seed',()=>{
   assert.deepEqual(encounterMap(c,2),encounterMap(c,2));
 });
 test('autobattle terminates on all generated maps and keeps valid saves',()=>{
-  const c=newCampaign();for(const biome of Object.keys(BIOME_NAMES) as Biome[]){const b=autoBattle(createBattle(c.army,c.enemy,false,true,generateMap(biome,42)));assert.ok(b.winner);assert.ok(b.elapsed<601);assert.ok(validSave({schema:4,campaign:c,battle:b}));}
+  const c=newCampaign();for(const biome of Object.keys(BIOME_NAMES) as Biome[]){const b=autoBattle(createBattle(c.army,c.enemy,false,true,generateMap(biome,42)));assert.ok(b.winner);assert.ok(b.elapsed<601);assert.ok(validSave({schema:5,campaign:c,battle:b}));}
 });
-test('invalid saved terrain is rejected',()=>{const c=newCampaign(),b=createBattle(c.army,c.enemy);b.map.obstacles.push({x:400,y:300,w:-1,h:30,kind:'building'});assert.equal(validSave({schema:4,campaign:c,battle:b}),false);});
+test('invalid saved terrain is rejected',()=>{const c=newCampaign(),b=createBattle(c.army,c.enemy);b.map.obstacles.push({x:400,y:300,w:-1,h:30,kind:'building'});assert.equal(validSave({schema:5,campaign:c,battle:b}),false);});

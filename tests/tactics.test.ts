@@ -6,7 +6,7 @@ import { generateMap, heightAt, contourLines, clearLine } from '../src/terrain.t
 import { validMap } from '../src/storage.ts';
 
 test('enemy inspection preserves friendly selection and existing orders',()=>{
-  const b=trainingBattle();b.phase='combat';const own=b.units[0],enemy=b.units[8];
+  const b=trainingBattle();b.phase='combat';const own=b.units[0],enemy=b.units[8];enemy.x=own.x+100;enemy.y=own.y;b.map.relief.amplitude=0;b.map.forests=[];
   own.order={kind:'move',x:450,y:325};
   const before=structuredClone(b.units.map(u=>u.order));
   const result=battleClick(b,own.id,enemy);
@@ -15,7 +15,7 @@ test('enemy inspection preserves friendly selection and existing orders',()=>{
   assert.equal(battleClick(b,null,enemy).selected,null);
 });
 test('right click attacks enemies; enemy troops cannot receive player commands',()=>{
-  const b=trainingBattle();b.phase='combat';const own=b.units[0],enemy=b.units[8];
+  const b=trainingBattle();b.phase='combat';const own=b.units[0],enemy=b.units[8];enemy.x=own.x+100;enemy.y=own.y;b.map.relief.amplitude=0;b.map.forests=[];
   assert.equal(battleClick(b,own.id,enemy,false,true).changed,true);
   assert.deepEqual(own.order,{kind:'attack',target:enemy.id});
   const before=structuredClone(enemy.order);
@@ -31,10 +31,12 @@ test('move orders show the obstacle-aware path immediately and reject buildings'
   assert.ok(battleClick(b,own.id,{x:obstacle.x+20,y:obstacle.y+20},false,true).error);
   assert.deepEqual(own.order,before);
 });
-test('shift right click changes facing and holds the selected friendly unit',()=>{
-  const b=trainingBattle();b.phase='combat';const own=b.units[0];
-  battleClick(b,own.id,{x:own.x,y:own.y+80},true,true);
-  assert.equal(own.angle,Math.PI/2);assert.equal(own.order.kind,'hold');
+test('shift right click appends waypoints instead of rotating the unit',()=>{
+ const b=trainingBattle();b.phase='combat';const own=b.units[0];
+ battleClick(b,own.id,{x:450,y:own.y},false,true);
+ battleClick(b,own.id,{x:550,y:own.y+80},true,true);
+ assert.equal(own.angle,0);assert.equal(own.order.kind,'move');assert.equal(own.queue.length,1);
+ assert.equal(own.queue[0].kind,'move');
 });
 test('slopes have a higher end; valleys have high sides and a low center',()=>{
   const m=generateMap('mountain',42);

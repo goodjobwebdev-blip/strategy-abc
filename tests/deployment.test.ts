@@ -19,14 +19,14 @@ test('deployment places and faces troops, rejecting outside zones and overlappin
   const before=structuredClone(u);
   assert.ok(battleClick(b,u.id,{x:1100,y:800},false,true).error);assert.deepEqual(u,before);
   assert.ok(battleClick(b,u.id,b.units[1],false,true).error);assert.deepEqual(u,before);
-  assert.equal(battleClick(b,u.id,b.units[8]).inspected,b.units[8].id);
+  assert.equal(battleClick(b,u.id,b.units[8]).inspected,null);
 });
 test('deployment and combat survive current-format saves with world-sized coordinates',()=>{
   const c=newCampaign(),b=createBattle(c.army,c.enemy);
-  assert.ok(validSave({schema:4,campaign:c,battle:b}));
+  assert.ok(validSave({schema:5,campaign:c,battle:b}));
   b.phase='combat';b.units[0].order={kind:'move',x:2200,y:1400,facing:1.2};
-  assert.ok(validSave({schema:4,campaign:c,battle:b}));
-  b.units[0].order.facing=Infinity;assert.equal(validSave({schema:4,campaign:c,battle:b}),false);
+  assert.ok(validSave({schema:5,campaign:c,battle:b}));
+  b.units[0].order.facing=Infinity;assert.equal(validSave({schema:5,campaign:c,battle:b}),false);
 });
 test('after a move the unit faces the requested direction and holds position',()=>{
   const c=newCampaign(),b=createBattle(c.army,c.enemy);b.phase='combat';const u=b.units[0];
