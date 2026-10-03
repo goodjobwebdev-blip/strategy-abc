@@ -4,19 +4,22 @@ import { LAND, ITALY, MOUNTAINS, ROADS, TYPES, WORLD_FORESTS, RIVERS, project } 
                                               
 import { distance, inPolygon } from './campaign.js';
                                                       
-import { BIOME_NAMES, heightAt, mapForest } from './terrain.js';
-                                                                                                                        
+                                              
+import { BIOME_NAMES, RELIEF_NAMES, heightAt, mapForest, contourLines } from './terrain.js';
+                                                                                                                                                                                       
 const ROMAN=0xa94436,ENEMY=0x426d86;
 export class MapScene extends Phaser.Scene {
   graphics                              ;
   labels                          =[];
   labelIndex=0;
   elapsedRender=0;
+  cachedMap               =null;
+  contours          =[];
   state              ;
-  onPoint                              ;
+  onPoint                                            ;
   onTick                     ;
-  constructor(state              ,onPoint                              ,onTick                     ){super('map');this.state=state;this.onPoint=onPoint;this.onTick=onTick;}
-  create(){this.graphics=this.add.graphics();this.input.on('pointerdown',(p                     )=>this.onPoint({x:p.x,y:p.y},p.event.shiftKey));this.draw();}
+  constructor(state              ,onPoint                                            ,onTick                     ){super('map');this.state=state;this.onPoint=onPoint;this.onTick=onTick;}
+  create(){this.graphics=this.add.graphics();this.input.on('pointerdown',(p                     )=>this.onPoint({x:p.x,y:p.y},p.event.shiftKey,p.rightButtonDown()));this.draw();}
   update(_time       ,delta       ){this.onTick(Math.min(delta/1000,.25));this.elapsedRender+=delta;if(this.elapsedRender>70){this.elapsedRender=0;this.draw();}}
   label(x       ,y       ,text       ,size=13,color='#4a5446',align='center'){
     let label=this.labels[this.labelIndex];
@@ -25,7 +28,7 @@ export class MapScene extends Phaser.Scene {
   }
   poly(points        ,fill       ,line        ){const g=this.graphics;g.fillStyle(fill);g.fillPoints(points,true);if(line){g.lineStyle(2,line);g.strokePoints(points,true);}}
   line(points        ,color       ,width=2,alpha=1){if(!points.length)return;const g=this.graphics;g.lineStyle(width,color,alpha);g.beginPath();g.moveTo(points[0].x,points[0].y);points.slice(1).forEach(p=>g.lineTo(p.x,p.y));g.strokePath();}
-  draw(){const s=this.state(),g=this.graphics;g.clear();this.labelIndex=0;if(s.battle)this.battleMap(s.battle,s.selectedUnit);else this.campaignMap(s.campaign,s.selectedCity);for(let i=this.labelIndex;i<this.labels.length;i++)this.labels[i].setVisible(false);}
+  draw(){const s=this.state(),g=this.graphics;g.clear();this.labelIndex=0;if(s.battle)this.battleMap(s.battle,s.selectedUnit,s.inspectedUnit,s.showOrders,s.showNames);else this.campaignMap(s.campaign,s.selectedCity);for(let i=this.labelIndex;i<this.labels.length;i++)this.labels[i].setVisible(false);}
   campaignMap(c         ,selectedCity            ){
     const g=this.graphics;g.fillStyle(0x9cbec1);g.fillRect(0,0,1000,650);
     g.lineStyle(1,0xffffff,.12);for(let x=0;x<=1000;x+=50)g.lineBetween(x,0,x,650);for(let y=0;y<=650;y+=50)g.lineBetween(0,y,1000,y);
@@ -56,12 +59,13 @@ export class MapScene extends Phaser.Scene {
     this.label(22,622,'СЕКТОР I · ИТАЛИЯ · БЕРЕГОВАЯ ЛИНИЯ NATURAL EARTH',10,'#456566','left');
     this.label(930,35,'СЕВЕР ↑',12,'#456566');
   }
-  battleMap(b       ,selected            ){
+  battleMap(b       ,selected            ,inspected            ,showOrders        ,showNames        ){
     const g=this.graphics;g.fillStyle(0xe2dbc1);g.fillRect(0,0,1000,650);
     g.lineStyle(1,0xb5b195,.25);for(let x=0;x<=1000;x+=40)g.lineBetween(x,0,x,650);for(let y=0;y<=650;y+=40)g.lineBetween(0,y,1000,y);
     const map=b.map;
-    for(let x=0;x<1000;x+=40)for(let y=0;y<650;y+=40){const height=heightAt({x:x+20,y:y+20},map);if(height>.15){g.fillStyle(0x93886a,Math.min(.24,height*.065));g.fillRect(x,y,40,40);}}
-    for(const hill of map.hills){g.lineStyle(1.5,0x9f9b77,.55);for(const scale of [1,.7,.4])g.strokeEllipse(hill.x,hill.y,hill.rx*2*scale,hill.ry*2*scale);}
+    for(let x=0;x<1000;x+=20)for(let y=0;y<650;y+=20){const height=heightAt({x:x+10,y:y+10},map);g.fillStyle(0x8f7957,Math.min(.36,height*.095));g.fillRect(x,y,20,20);}
+    if(this.cachedMap!==map){this.cachedMap=map;this.contours=contourLines(map);}
+    for(const line of this.contours)this.line(line,0x8b8061,1,.55);
     for(const f of map.forests){g.fillStyle(0x91aa80,.22);g.fillEllipse(f.x,f.y,f.rx*2,f.ry*2);}
     for(let x=32;x<980;x+=23)for(let y=50;y<620;y+=27)if(mapForest({x,y},map)){g.fillStyle(0x628658,.68);g.fillTriangle(x,y-8,x-6,y+5,x+6,y+5);g.lineStyle(1,0x556b44,.5);g.lineBetween(x,y+4,x,y+9);}
     for(const road of map.roads){this.line(road,0xbfa979,map.biome==='city'?42:30,.6);this.line(road,0xe3d2a2,map.biome==='city'?34:20,.8);}
@@ -70,20 +74,38 @@ export class MapScene extends Phaser.Scene {
       if(o.kind==='building'){g.fillStyle(0x74634d,.2);g.fillRect(o.x+5,o.y+5,o.w,o.h);g.fillStyle(0xc8ad84);g.fillRect(o.x,o.y,o.w,o.h);g.lineStyle(1,0x8c7759);g.strokeRect(o.x,o.y,o.w,o.h);g.fillStyle(0xa87656);g.fillRect(o.x+4,o.y+4,o.w-8,o.h-8);this.line([{x:o.x+o.w/2,y:o.y+5},{x:o.x+o.w/2,y:o.y+o.h-5}],0xd8af7a,2);}
       else {g.fillStyle(0x827d69);g.fillRoundedRect(o.x,o.y,o.w,o.h,18);g.lineStyle(2,0x686859);g.strokeRoundedRect(o.x,o.y,o.w,o.h,18);for(let y=o.y+30;y<o.y+o.h-15;y+=45)this.line([{x:o.x+15,y:y+10},{x:o.x+o.w/2,y:y-12},{x:o.x+o.w-12,y:y+8}],0xb7b199,2);}
     }
-    this.label(500,630,`${BIOME_NAMES[map.biome].toUpperCase()} · SEED ${map.seed}`,10,'#7d7964');
+    this.label(500,630,`${BIOME_NAMES[map.biome].toUpperCase()} · ${RELIEF_NAMES[map.relief.kind].toUpperCase()} · SEED ${map.seed}`,10,'#7d7964');
     this.label(26,24,'РИМ',15,'#9c4638','left');this.label(974,24,'БОЙИ',15,'#40677b');
     for(const shot of b.shots)this.line([shot.from,shot.to],shot.side==='rome'?ROMAN:ENEMY,1.5,.7);
-    for(const u of b.units)if(u.men>=1)this.unit(u,u.id===selected);
+    // Draw every friendly command underneath units; enemy intentions remain hidden.
+    for(const u of b.units)if(u.men>=1&&!u.routed&&u.side==='rome'&&(showOrders||u.id===selected))this.order(b,u,u.id===selected);
+    const active=b.units.find(u=>u.id===selected);
+    if(active&&TYPES[active.type].range>50){g.lineStyle(1.5,ROMAN,.35);g.strokeCircle(active.x,active.y,TYPES[active.type].range);}
+    for(const u of b.units)if(u.men>=1)this.unit(u,u.id===selected,u.id===inspected&&u.side==='boii',showNames);
   }
-  unit(u           ,selected        ){
+  arrow(points        ,color       ,width       ,alpha       ){
+    this.line(points,color,width,alpha);if(points.length<2)return;
+    const end=points[points.length-1],prev=points[points.length-2],angle=Math.atan2(end.y-prev.y,end.x-prev.x);
+    this.line([{x:end.x-12*Math.cos(angle-.5),y:end.y-12*Math.sin(angle-.5)},end,{x:end.x-12*Math.cos(angle+.5),y:end.y-12*Math.sin(angle+.5)}],color,width,alpha);
+  }
+  order(b       ,u           ,selected        ){
+    const g=this.graphics,alpha=selected?.95:.45,width=selected?2.5:1.5;
+    if(u.order.kind==='hold'){g.lineStyle(width,ROMAN,alpha);g.strokeCircle(u.x,u.y,29);return;}
+    if(u.order.kind==='move'){
+      const path=u.nav?.length?[u,...u.nav,u.order]:[u,u.order];this.arrow(path,0x5c7852,width,alpha);
+      g.lineStyle(width,0x5c7852,alpha);g.strokeCircle(u.order.x,u.order.y,8);
+    }else{const target=b.units.find(v=>v.id===(u.order                   ).target);if(target){this.arrow([u,target],ROMAN,width,alpha);g.lineStyle(width,ROMAN,alpha);g.strokeCircle(target.x,target.y,32);}}
+
+  }
+  unit(u           ,selected        ,inspected        ,showNames        ){
     const g=this.graphics,def=TYPES[u.type],color=u.side==='rome'?ROMAN:ENEMY;
     const rect=[{x:-13,y:-25},{x:13,y:-25},{x:13,y:25},{x:-13,y:25}].map(p=>({x:u.x+p.x*Math.cos(u.angle)-p.y*Math.sin(u.angle),y:u.y+p.x*Math.sin(u.angle)+p.y*Math.cos(u.angle)}));
     if(selected){g.lineStyle(2,0xfaf3cf);g.strokeCircle(u.x,u.y,38);g.lineStyle(2,0x9b7b30);g.strokeCircle(u.x,u.y,40);}
+    if(inspected){g.lineStyle(2,ENEMY);g.strokeCircle(u.x,u.y,40);}
     g.fillStyle(u.routed?0x938a7a:color,u.routed?.45:1);g.fillPoints(rect,true);g.lineStyle(1,0x332f26,.5);g.strokePoints(rect,true);
     this.line([{x:u.x,y:u.y},{x:u.x+Math.cos(u.angle)*33,y:u.y+Math.sin(u.angle)*33}],0xf6edda,2);
     this.label(u.x,u.y,def.icon,10,'#fff8e3');this.label(u.x,u.y+25,`${Math.ceil(u.men)}${u.routed?' · БЕГУТ':''}`,11,u.routed?'#76634f':'#403e31');
     g.fillStyle(0x504d3d,.35);g.fillRect(u.x-24,u.y-25,48,4);g.fillStyle(u.morale>45?0x5f8359:u.morale>20?0xb39644:0xa94436);g.fillRect(u.x-24,u.y-25,48*u.morale/100,4);
-    if(selected&&u.order.kind==='move'){this.line([u,u.order],color,1,.8);g.lineStyle(2,color);g.strokeCircle(u.order.x,u.order.y,7);}
-    if(selected&&u.order.kind==='attack'){const target=this.state().battle?.units.find(v=>v.id===(u.order                   ).target);if(target){this.line([u,target],color,1,.7);g.lineStyle(2,color);g.strokeCircle(target.x,target.y,32);}}
+    if(showNames)this.label(Math.max(65,Math.min(935,u.x)),u.y+38,def.short,10,u.side==='rome'?'#87382d':'#345e75');
   }
 }

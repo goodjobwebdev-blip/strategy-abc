@@ -1,22 +1,21 @@
                                               
                                           
-import { TYPES, INITIAL_CITIES, BATTLE_HILL } from './data.js';
-import { distance,findPath } from './campaign.js';
+import { TYPES, INITIAL_CITIES } from './data.js';
                                               
                                                                          
-const KEY='strategy-abc-mvp-v1';
+const KEY='strategy-abc-mvp-v3';
 const finite=(x        )=>typeof x==='number'&&Number.isFinite(x);
 const point=(p    )=>p&&finite(p.x)&&finite(p.y)&&p.x>=0&&p.x<=1000&&p.y>=0&&p.y<=650;
 const troop=(u    )=>u&&typeof u.id==='string'&&Object.hasOwn(TYPES,u.type)&&finite(u.men)&&u.men>=0&&u.men<=100;
-function coreValid(s    ,legacy=false)         {
+function coreValid(s    )         {
   const c=s?.campaign;
-  if(s?.schema!==(legacy?1:2)||!c||c.version!==1||!finite(c.day)||c.day<1||!finite(c.gold)||c.gold<0||!finite(c.movement)||c.movement<0||!finite(c.serial)||typeof c.won!=='boolean'||!point(c.position)||!point(c.enemyPosition))return false;
+  if(s?.schema!==3||!c||c.version!==1||!finite(c.day)||c.day<1||!finite(c.gold)||c.gold<0||!finite(c.movement)||c.movement<0||!finite(c.serial)||typeof c.won!=='boolean'||!point(c.position)||!point(c.enemyPosition))return false;
   if(!Array.isArray(c.army)||c.army.length>16||!c.army.every(troop)||!Array.isArray(c.enemy)||!c.enemy.every(troop)||!Array.isArray(c.route)||!c.route.every(point)||!Array.isArray(c.notices)||!c.notices.every((v        )=>typeof v==='string'))return false;
-  if(!Array.isArray(c.cities)||c.cities.length!==(legacy?4:INITIAL_CITIES.length)||!c.cities.every((v    )=>(legacy?['rome','capua','ariminum','felsina']:INITIAL_CITIES.map(x=>x.id)).includes(v.id)&&typeof v.name==='string'&&typeof v.latin==='string'&&point(v)&&['rome','boii'].includes(v.owner)&&Array.isArray(v.garrison)&&v.garrison.length<=8&&v.garrison.every(troop)))return false;
+  if(!Array.isArray(c.cities)||c.cities.length!==INITIAL_CITIES.length||!c.cities.every((v    )=>INITIAL_CITIES.map(x=>x.id).includes(v.id)&&typeof v.name==='string'&&typeof v.latin==='string'&&point(v)&&['rome','boii'].includes(v.owner)&&Array.isArray(v.garrison)&&v.garrison.length<=8&&v.garrison.every(troop)))return false;
   if(new Set(c.cities.map((v    )=>v.id)).size!==c.cities.length)return false;
   if(s.battle!==null){
     const b=s.battle;
-    if(!legacy&&!validMap(b?.map))return false;
+    if(!validMap(b?.map))return false;
     if(!b||!finite(b.elapsed)||b.elapsed<0||!['rome','boii','draw',null].includes(b.winner)||typeof b.reason!=='string'||typeof b.training!=='boolean'||typeof b.aiRome!=='boolean'||!Array.isArray(b.units)||b.units.length>32||!Array.isArray(b.logs)||!b.logs.every((v        )=>typeof v==='string')||!Array.isArray(b.shots))return false;
     if(!b.units.every((u    )=>troop(u)&&point(u)&&['rome','boii'].includes(u.side)&&finite(u.initialMen)&&u.initialMen>0&&finite(u.morale)&&finite(u.fatigue)&&finite(u.cohesion)&&finite(u.angle)&&finite(u.charge)&&finite(u.chargeCooldown)&&finite(u.lastShot)&&typeof u.routed==='boolean'&&u.order&&(['hold'].includes(u.order.kind)||(u.order.kind==='move'&&point(u.order))||(u.order.kind==='attack'&&typeof u.order.target==='string'))))return false;
     if(!b.shots.every((v    )=>point(v.from)&&point(v.to)&&finite(v.ttl)&&['rome','boii'].includes(v.side)))return false;
@@ -24,24 +23,12 @@ function coreValid(s    ,legacy=false)         {
   return true;
 }
 export function validMap(m    )               {
- if(!m||m.version!==1||!['plain','forest','mountain','city'].includes(m.biome)||!Number.isInteger(m.seed)||m.seed<0||m.seed>4294967295||typeof m.townName!=='string')return false;
+ if(!m||m.version!==2||!['plain','forest','mountain','city'].includes(m.biome)||!Number.isInteger(m.seed)||m.seed<0||m.seed>4294967295||typeof m.townName!=='string')return false;
+ const r=m.relief;
+ if(!r||!['slope','valley','ridge','rolling'].includes(r.kind)||!finite(r.angle)||Math.abs(r.angle)>Math.PI*2||!finite(r.amplitude)||r.amplitude<0||r.amplitude>4||!finite(r.offset)||Math.abs(r.offset)>100||!finite(r.phase)||Math.abs(r.phase)>Math.PI*2)return false;
  const ellipse=(e    )=>point(e)&&finite(e.rx)&&finite(e.ry)&&e.rx>0&&e.ry>0&&e.rx<500&&e.ry<500;
- return Array.isArray(m.forests)&&m.forests.length<=100&&m.forests.every(ellipse)&&Array.isArray(m.hills)&&m.hills.length<=40&&m.hills.every((e    )=>ellipse(e)&&finite(e.height)&&e.height>=0&&e.height<=5)&&Array.isArray(m.obstacles)&&m.obstacles.length<=80&&m.obstacles.every((o    )=>point(o)&&finite(o.w)&&finite(o.h)&&o.w>0&&o.h>0&&o.w<1000&&o.h<650&&['building','rock'].includes(o.kind))&&Array.isArray(m.roads)&&m.roads.length<=10&&m.roads.every((r    )=>Array.isArray(r)&&r.length<=30&&r.every(point));
+ return Array.isArray(m.forests)&&m.forests.length<=100&&m.forests.every(ellipse)&&Array.isArray(m.obstacles)&&m.obstacles.length<=80&&m.obstacles.every((o    )=>point(o)&&finite(o.w)&&finite(o.h)&&o.w>0&&o.h>0&&o.w<1000&&o.h<650&&['building','rock'].includes(o.kind))&&Array.isArray(m.roads)&&m.roads.length<=10&&m.roads.every((r    )=>Array.isArray(r)&&r.length<=30&&r.every(point));
 }
 export function validSave(s    )          {return coreValid(s);}
-export function migrateSave(input    )          {
- if(coreValid(input))return input;
- if(!coreValid(input,true))return null;
- const s=structuredClone(input),c=s.campaign,oldCities=c.cities;
- const nearest=(p    )=>[...oldCities].sort((a    ,b    )=>distance(p,a)-distance(p,b))[0].id;
- const locationId=nearest(c.position),targetId=c.route.length?nearest(c.route[c.route.length-1]):null;
- c.cities=INITIAL_CITIES.map(city=>{const old=oldCities.find((v    )=>v.id===city.id);return {...structuredClone(city),owner:old?.owner??city.owner,garrison:old?.garrison??[]};});
- const location=c.cities.find((v    )=>v.id===locationId);c.position={x:location.x,y:location.y};
- const enemy=c.cities.find((v    )=>v.id==='felsina');c.enemyPosition={x:enemy.x,y:enemy.y};
- c.route=targetId?findPath(c.position,c.cities.find((v    )=>v.id===targetId))??[]:[];
- c.notices.unshift('Карта Италии обновлена. Армия перенесена к ближайшему прежнему городу; войска и казна сохранены.');
- if(s.battle){s.battle.map={version:1,biome:'plain',seed:0,townName:'',forests:[{x:442.5,y:430,rx:77.5,ry:85},{x:777.5,y:137.5,rx:77.5,ry:72.5}],hills:[{...BATTLE_HILL,height:1}],obstacles:[],roads:[]};}
- s.schema=2;return coreValid(s)?s:null;
-}
-export function readSave()           {try{const data=localStorage.getItem(KEY);return data?migrateSave(JSON.parse(data)):null;}catch{return null;}}
-export function writeSave(campaign         ,battle            )         {try{localStorage.setItem(KEY,JSON.stringify({schema:2,campaign,battle}));return true;}catch{return false;}}
+export function readSave()           {try{const data=localStorage.getItem(KEY);const parsed=data?JSON.parse(data):null;return validSave(parsed)?parsed:null;}catch{return null;}}
+export function writeSave(campaign         ,battle            )         {try{localStorage.setItem(KEY,JSON.stringify({schema:3,campaign,battle}));return true;}catch{return false;}}

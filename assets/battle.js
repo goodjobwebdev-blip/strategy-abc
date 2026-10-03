@@ -17,7 +17,7 @@ export function battleLog(b       ,text       ){b.logs.unshift(text);b.logs=b.lo
 function spawn(army           ,side     )             {
   return army.map((u,i)=>{
     const row=i%8,column=Math.floor(i/8);
-    const y=army.length<=4?220+i*90:95+row*64;
+    const y=army.length<=4?220+i*90:65+row*74;
     return {...u,id:`${side}:${u.id}`,side,x:side==='rome'?145-column*65:850+column*65,y,initialMen:u.men,morale:TYPES[u.type].morale,fatigue:0,cohesion:1,angle:side==='rome'?0:Math.PI,order:{kind:'hold'},routed:false,charge:0,chargeCooldown:0,lastShot:0};
   });
 }
@@ -37,11 +37,11 @@ function moveUnit(b       ,u           ,goal      ,dt       ){
   if(blocked(p,b.map))return false;
   let target=p;
   if(!clearLine(u,p,b.map,8)){
-    if(!u.navGoal||distance(u.navGoal,p)>25||(u.repathAt??0)<=b.elapsed){u.nav=battlePath(u,p,b.map)??[];u.navGoal=p;u.repathAt=b.elapsed+1;}
-    while(u.nav?.length&&distance(u,u.nav[0])<5)u.nav.shift();
+    if(!u.navGoal||distance(u.navGoal,p)>25||!u.nav?.length||!clearLine(u,u.nav[0],b.map,8)){u.nav=battlePath(u,p,b.map)??[];u.navGoal=p;u.repathAt=b.elapsed+1;}
+    while(u.nav?.length&&distance(u,u.nav[0])<.5)u.nav.shift();
     if(!u.nav?.length)return false;target=u.nav[0];
   }else u.nav=[];
-  const d=distance(u,target);if(d<2)return false;
+  const d=distance(u,target);if(d<.25)return false;
   const def=TYPES[u.type],forest=forestAt(u,b.map),ascent=Math.max(0,heightAt(target,b.map)-heightAt(u,b.map));
   const speed=def.speed*(forest?(def.cavalry?.42:.72):1)/(1+Math.min(2,ascent)*.4)*(1-u.fatigue*.35)*(u.routed?1.15:1);
   const step=Math.min(d,speed*dt),angle=Math.atan2(target.y-u.y,target.x-u.x);
