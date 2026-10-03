@@ -78,7 +78,7 @@ test('field victory does not capture distant Felsina and new state saves queue a
  const c=newCampaign(),b=simple();c.enemyPosition={...c.cities.find(x=>x.id==='arretium')!};b.winner='rome';
  applyBattleResult(c,b,survivors(b,'rome'),[]);assert.equal(c.cities.find(x=>x.id==='felsina')!.owner,'boii');assert.equal(c.won,false);
  issueOrder(b.units[0],{kind:'move',x:600,y:800});issueOrder(b.units[0],{kind:'move',x:700,y:900,facing:1},true);
- assert.ok(validSave({schema:5,campaign:c,battle:b}));b.units[0].queue.push({kind:'move',x:Infinity,y:80});assert.equal(validSave({schema:5,campaign:c,battle:b}),false);
+ assert.ok(validSave({schema:6,campaign:c,battle:b}));b.units[0].queue.push({kind:'move',x:Infinity,y:80});assert.equal(validSave({schema:6,campaign:c,battle:b}),false);
 });
 
 test('retreat deployment starts under pressure and cannot be moved to the exit before combat',()=>{

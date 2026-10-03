@@ -1,21 +1,21 @@
-import { INITIAL_CITIES, WORLD_FORESTS, MOUNTAINS, unproject } from './data.ts';
-import type { Point } from './data.ts';
-import { distance, inPolygon, segmentDistance } from './campaign.ts';
-export type Biome = 'plain'|'forest'|'mountain'|'city';
-export const BIOME_NAMES:Record<Biome,string>={plain:'Равнина',forest:'Лес',mountain:'Горы',city:'Город'};
-export interface Ellipse extends Point { rx:number;ry:number }
-export interface Obstacle extends Point { w:number;h:number;kind:'building'|'rock' }
-export type ReliefKind='slope'|'valley'|'ridge'|'rolling';
-export const RELIEF_NAMES:Record<ReliefKind,string>={slope:'Склон',valley:'Долина',ridge:'Гряда',rolling:'Волнистая равнина'};
-export interface Relief { kind:ReliefKind;angle:number;amplitude:number;offset:number;phase:number }
-export interface BattleMap { version:3;width:number;height:number;relief:Relief;biome:Biome;seed:number;townName:string;forests:Ellipse[];obstacles:Obstacle[];roads:Point[][] }
-export function randomFromSeed(seed:number){let n=seed>>>0;return()=>{n+=0x6d2b79f5;let t=n;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296;};}
-export function inEllipse(p:Point,e:Ellipse){return ((p.x-e.x)/e.rx)**2+((p.y-e.y)/e.ry)**2<1;}
-export function mapForest(p:Point,map:BattleMap){
+import { INITIAL_CITIES, WORLD_FORESTS, MOUNTAINS, unproject } from './data.5539a7952bdc.js';
+                                       
+import { distance, inPolygon, segmentDistance } from './campaign.5539a7952bdc.js';
+                                                       
+export const BIOME_NAMES                     ={plain:'Равнина',forest:'Лес',mountain:'Горы',city:'Город'};
+                                                              
+                                                                                    
+                                                          
+export const RELIEF_NAMES                          ={slope:'Склон',valley:'Долина',ridge:'Гряда',rolling:'Волнистая равнина'};
+                                                                                                    
+                                                                                                                                                                                
+export function randomFromSeed(seed       ){let n=seed>>>0;return()=>{n+=0x6d2b79f5;let t=n;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296;};}
+export function inEllipse(p      ,e        ){return ((p.x-e.x)/e.rx)**2+((p.y-e.y)/e.ry)**2<1;}
+export function mapForest(p      ,map          ){
   if(map.roads.some(r=>r.slice(1).some((q,i)=>segmentDistance(p,r[i],q)<22)))return false;
   return map.forests.some(e=>inEllipse(p,e));
 }
-export function heightAt(p:Point,map:BattleMap){
+export function heightAt(p      ,map          ){
   p={x:p.x*1000/map.width,y:p.y*650/map.height};
   const r=map.relief,c=Math.cos(r.angle),s=Math.sin(r.angle);
   const along=(p.x-500)*c+(p.y-325)*s;
@@ -30,13 +30,13 @@ export function heightAt(p:Point,map:BattleMap){
   return .1+r.amplitude*(.5+.25*Math.sin(along/210+r.phase)+.25*Math.sin(across/170+r.phase*.7));
 }
 // Isolines come from one continuous height field, rather than independent hill rings.
-export function contourLines(map:BattleMap,spacing=.35,step=40):Point[][]{
-  const lines:Point[][]=[];
+export function contourLines(map          ,spacing=.35,step=40)          {
+  const lines          =[];
   for(let x=0;x<map.width;x+=step)for(let y=0;y<map.height;y+=step){
     const corners=[{x,y},{x:x+step,y},{x:x+step,y:Math.min(map.height,y+step)},{x,y:Math.min(map.height,y+step)}];
     const heights=corners.map(p=>heightAt(p,map)),low=Math.min(...heights),high=Math.max(...heights);
     for(let level=Math.ceil(low/spacing)*spacing;level<high;level+=spacing){
-      const hits:Point[]=[];
+      const hits        =[];
       for(let i=0;i<4;i++){const j=(i+1)%4,a=heights[i],b=heights[j];if((a<level)===(b<level))continue;
         const t=(level-a)/(b-a);hits.push({x:corners[i].x+(corners[j].x-corners[i].x)*t,y:corners[i].y+(corners[j].y-corners[i].y)*t});}
       if(hits.length===2)lines.push(hits);
@@ -45,8 +45,8 @@ export function contourLines(map:BattleMap,spacing=.35,step=40):Point[][]{
     }
   }return lines;
 }
-export function blocked(p:Point,map:BattleMap,margin=8){return p.x<15||p.x>map.width-15||p.y<20||p.y>map.height-30||map.obstacles.some(o=>p.x>o.x-margin&&p.x<o.x+o.w+margin&&p.y>o.y-margin&&p.y<o.y+o.h+margin);}
-export function clearLine(a:Point,b:Point,map:BattleMap,margin=0){
+export function blocked(p      ,map          ,margin=8){return p.x<15||p.x>map.width-15||p.y<20||p.y>map.height-30||map.obstacles.some(o=>p.x>o.x-margin&&p.x<o.x+o.w+margin&&p.y>o.y-margin&&p.y<o.y+o.h+margin);}
+export function clearLine(a      ,b      ,map          ,margin=0){
   if(blocked(a,map,margin)||blocked(b,map,margin))return false;
   // Exact segment/rectangle intersection: sampled rays could miss thin corners.
   return !map.obstacles.some(o=>{
@@ -57,11 +57,11 @@ export function clearLine(a:Point,b:Point,map:BattleMap,margin=0){
     }return lo<=hi;
   });
 }
-export function generateMap(biome:Biome,seed:number,townName='Поселение'):BattleMap{
-  const rand=randomFromSeed(seed),range=(min:number,max:number)=>min+rand()*(max-min);
-  const kind:ReliefKind=biome==='mountain'?(rand()<.5?'valley':'ridge'):biome==='city'?'slope':biome==='forest'?(['slope','valley','ridge'] as ReliefKind[])[Math.floor(rand()*3)]:rand()<.5?'slope':'rolling';
-  const relief:Relief={kind,angle:biome==='mountain'?range(-.12,.12):range(0,Math.PI*2),amplitude:biome==='mountain'?range(2.6,3.5):biome==='forest'?range(1,1.8):biome==='city'?.35:range(.35,.7),offset:range(-40,40),phase:range(0,Math.PI*2)};
-  const map:BattleMap={version:3,width:2400,height:1600,relief,biome,seed:seed>>>0,townName,forests:[],obstacles:[],roads:[]};
+export function generateMap(biome      ,seed       ,townName='Поселение')          {
+  const rand=randomFromSeed(seed),range=(min       ,max       )=>min+rand()*(max-min);
+  const kind           =biome==='mountain'?(rand()<.5?'valley':'ridge'):biome==='city'?'slope':biome==='forest'?(['slope','valley','ridge']                )[Math.floor(rand()*3)]:rand()<.5?'slope':'rolling';
+  const relief       ={kind,angle:biome==='mountain'?range(-.12,.12):range(0,Math.PI*2),amplitude:biome==='mountain'?range(2.6,3.5):biome==='forest'?range(1,1.8):biome==='city'?.35:range(.35,.7),offset:range(-40,40),phase:range(0,Math.PI*2)};
+  const map          ={version:3,width:2400,height:1600,relief,biome,seed:seed>>>0,townName,forests:[],obstacles:[],roads:[]};
   const road=[{x:15,y:325},{x:290,y:325},{x:500,y:325},{x:710,y:325},{x:985,y:325}];
   if(biome==='forest'){
     map.roads=[road.map((p,i)=>({...p,y:i===0||i===4?325:325+range(-28,28)}))];
@@ -90,34 +90,34 @@ export function generateMap(biome:Biome,seed:number,townName='Поселение
   map.roads=map.roads.map(r=>r.map(p=>({x:p.x*sx,y:p.y*sy})));
   return map;
 }
-export function encounterMap(location:Point,day:number):BattleMap{
+export function encounterMap(location      ,day       )          {
   const city=INITIAL_CITIES.find(c=>distance(location,c)<28);
-  const biome:Biome=city?'city':WORLD_FORESTS.some(e=>inEllipse(location,e))?'forest':MOUNTAINS.some(p=>inPolygon(location,p))?'mountain':'plain';
+  const biome      =city?'city':WORLD_FORESTS.some(e=>inEllipse(location,e))?'forest':MOUNTAINS.some(p=>inPolygon(location,p))?'mountain':'plain';
   const geo=unproject(location),seed=(Math.round(geo.lon*100)*73856093^Math.round(geo.lat*100)*19349663^day*83492791)>>>0;
   return generateMap(biome,seed,city?.name??'');
 }
-export function battlePath(start:Point,goal:Point,map:BattleMap):Point[]|null{
+export function battlePath(start      ,goal      ,map          )             {
   if(blocked(goal,map))return null;if(clearLine(start,goal,map,8))return [goal];
-  const cell=40,cols=Math.floor((map.width-40)/cell)+1,rows=Math.floor((map.height-60)/cell)+1,point=(i:number)=>({x:20+(i%cols)*cell,y:30+Math.floor(i/cols)*cell});
-  const index=(p:Point)=>Math.max(0,Math.min(rows-1,Math.round((p.y-30)/cell)))*cols+Math.max(0,Math.min(cols-1,Math.round((p.x-20)/cell)));
-  const nearest=(p:Point)=>{let best=-1,min=Infinity;for(let i=0;i<cols*rows;i++){const q=point(i),d=distance(p,q);if(d<min&&!blocked(q,map)&&clearLine(p,q,map,8)){min=d;best=i;}}return best;};
+  const cell=40,cols=Math.floor((map.width-40)/cell)+1,rows=Math.floor((map.height-60)/cell)+1,point=(i       )=>({x:20+(i%cols)*cell,y:30+Math.floor(i/cols)*cell});
+  const index=(p      )=>Math.max(0,Math.min(rows-1,Math.round((p.y-30)/cell)))*cols+Math.max(0,Math.min(cols-1,Math.round((p.x-20)/cell)));
+  const nearest=(p      )=>{let best=-1,min=Infinity;for(let i=0;i<cols*rows;i++){const q=point(i),d=distance(p,q);if(d<min&&!blocked(q,map)&&clearLine(p,q,map,8)){min=d;best=i;}}return best;};
   let first=index(start),last=index(goal);
   if(blocked(point(first),map)||!clearLine(start,point(first),map,8))first=nearest(start);
   if(blocked(point(last),map)||!clearLine(point(last),goal,map,8))last=nearest(goal);
   if(first<0||last<0)return null;
-  const open=new Set([first]),closed=new Set<number>(),came=new Map<number,number>(),cost=new Map([[first,0]]);
-  while(open.size){let id=-1,min=Infinity;for(const n of open){const f=cost.get(n)!+distance(point(n),point(last));if(f<min){min=f;id=n;}}
-    if(id===last){const result=[goal];while(id!==first){result.push(point(id));id=came.get(id)!;}result.push(point(first));return result.reverse();}
+  const open=new Set([first]),closed=new Set        (),came=new Map               (),cost=new Map([[first,0]]);
+  while(open.size){let id=-1,min=Infinity;for(const n of open){const f=cost.get(n) +distance(point(n),point(last));if(f<min){min=f;id=n;}}
+    if(id===last){const result=[goal];while(id!==first){result.push(point(id));id=came.get(id) ;}result.push(point(first));return result.reverse();}
     open.delete(id);closed.add(id);const p=point(id);
     for(const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]]){
       const x=id%cols+dx,y=Math.floor(id/cols)+dy;if(x<0||x>=cols||y<0||y>=rows)continue;const n=y*cols+x,q=point(n);
-      if(closed.has(n)||!clearLine(p,q,map,8))continue;const value=cost.get(id)!+distance(p,q);
+      if(closed.has(n)||!clearLine(p,q,map,8))continue;const value=cost.get(id) +distance(p,q);
       if(value<(cost.get(n)??Infinity)){cost.set(n,value);came.set(n,id);open.add(n);}
     }
   }return null;
 }
 
-export function terrainDescription(p:Point,map:BattleMap){
+export function terrainDescription(p      ,map          ){
  const h=heightAt(p,map).toFixed(2),o=map.obstacles.find(o=>p.x>=o.x&&p.x<=o.x+o.w&&p.y>=o.y&&p.y<=o.y+o.h);
  if(o)return `${o.kind==='building'?'Здание':'Скала'}: непроходимо, закрывает обзор и обстрел`;
  if(mapForest(p,map))return `Лес · высота ${h}: медленнее, строй нарушается, защита от стрел, натиск невозможен`;

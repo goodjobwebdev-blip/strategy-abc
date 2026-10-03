@@ -1,21 +1,21 @@
-import type { Battle, BattleUnit, Order } from './battle.ts';
-import { alive, visibleEnemies } from './battle.ts';
-import { TYPES } from './data.ts';
-import type { Point } from './data.ts';
-import { distance } from './campaign.ts';
-import { blocked, battlePath } from './terrain.ts';
+                                                             
+import { alive, visibleEnemies } from './battle.5539a7952bdc.js';
+import { TYPES } from './data.5539a7952bdc.js';
+                                       
+import { distance } from './campaign.5539a7952bdc.js';
+import { blocked, battlePath } from './terrain.5539a7952bdc.js';
 
-export function issueOrder(u:BattleUnit,order:Order,append=false){
+export function issueOrder(u           ,order      ,append=false){
   if(order.kind==='attack'&&TYPES[u.type].cavalry)u.pace='run';
   if(append&&u.order.kind!=='hold'){if(u.queue.length>=24)return false;u.queue.push(order);}
   else {u.order=order;u.queue=[];u.nav=[];u.navGoal=undefined;}
   return true;
 }
-export function battleClick(b:Battle,selectedId:string|null,p:Point,shift=false,right=false,facing?:number){
+export function battleClick(b       ,selectedId            ,p      ,shift=false,right=false,facing        ){
   const visible=visibleEnemies(b);
   const hit=b.units.filter(u=>u.men>=1&&!u.escaped&&(u.side==='rome'||visible.has(u.id))&&distance(u,p)<30).sort((a,z)=>distance(a,p)-distance(z,p))[0];
   const selected=b.units.find(u=>u.id===selectedId&&u.side==='rome');
-  const result={selected:selectedId,inspected:null as string|null,error:'',changed:false};
+  const result={selected:selectedId,inspected:null               ,error:'',changed:false};
   if(!right&&hit){result.inspected=hit.id;if(hit.side==='rome')result.selected=hit.id;return result;}
   if(!selected||!alive(selected)){result.error='Выбери боеспособный римский отряд.';return result;}
   if(b.phase==='deployment'){
@@ -34,17 +34,17 @@ export function battleClick(b:Battle,selectedId:string|null,p:Point,shift=false,
   if(result.changed&&selected.queue.length===0){selected.nav=path;selected.navGoal=goal;}return result;
 }
 // Translate the player's formation; explicit facing rotates it as a whole.
-export function groupSlots(b:Battle,ids:string[],p:Point,facing?:number,append=false){
- const units=ids.map(id=>b.units.find(u=>u.id===id)).filter((u):u is BattleUnit=>!!u&&u.side==='rome'&&alive(u));
+export function groupSlots(b       ,ids         ,p      ,facing        ,append=false){
+ const units=ids.map(id=>b.units.find(u=>u.id===id)).filter((u)                =>!!u&&u.side==='rome'&&alive(u));
  const refs=units.map(u=>{const last=append?[u.order,...u.queue].filter(o=>o.kind==='move').at(-1):undefined;return {u,point:last?.kind==='move'?last:u,angle:last?.kind==='move'?(last.facing??u.angle):u.angle};});
  const n=refs.length||1,center={x:refs.reduce((v,r)=>v+r.point.x,0)/n,y:refs.reduce((v,r)=>v+r.point.y,0)/n};
  const front=Math.atan2(refs.reduce((v,r)=>v+Math.sin(r.angle),0),refs.reduce((v,r)=>v+Math.cos(r.angle),0));
  const turn=facing===undefined?0:facing-front;
  return refs.map(({u,point,angle})=>{const dx=point.x-center.x,dy=point.y-center.y;return {u,p:{x:p.x+dx*Math.cos(turn)-dy*Math.sin(turn),y:p.y+dx*Math.sin(turn)+dy*Math.cos(turn)},facing:angle+turn};});
 }
-export function groupOrder(b:Battle,ids:string[],p:Point,append=false,facing?:number){
+export function groupOrder(b       ,ids         ,p      ,append=false,facing        ){
   const visible=visibleEnemies(b),enemy=b.units.find(u=>u.side==='boii'&&alive(u)&&visible.has(u.id)&&distance(u,p)<30);
-  const units=ids.map(id=>b.units.find(u=>u.id===id)).filter((u):u is BattleUnit=>!!u&&alive(u)&&u.side==='rome');
+  const units=ids.map(id=>b.units.find(u=>u.id===id)).filter((u)                =>!!u&&alive(u)&&u.side==='rome');
   if(enemy&&b.phase==='combat'){units.forEach(u=>issueOrder(u,{kind:'attack',target:enemy.id},append));return '';}
   const slots=groupSlots(b,ids,p,facing,append);
   // Validate the complete placement before mutating any unit.
@@ -58,7 +58,7 @@ export function groupOrder(b:Battle,ids:string[],p:Point,append=false,facing?:nu
   for(const {u,p:goal,facing:angle} of slots){if(b.phase==='deployment'){u.x=goal.x;u.y=goal.y;u.angle=angle;issueOrder(u,{kind:'hold'});}else issueOrder(u,{kind:'move',...goal,facing:angle},append);}
   return '';
 }
-export function orderText(b:Battle,u:BattleUnit){
+export function orderText(b       ,u           ){
   if(u.men<1)return 'Отряд уничтожен';if(u.escaped)return 'Вышел из боя';if(u.routed)return 'Бегство';
   const text=u.order.kind==='hold'?'Удерживает позицию':u.order.kind==='move'?'Движение к точке':u.order.kind==='guard'?'Прикрывает союзный отряд':'Атака: '+(TYPES[b.units.find(v=>u.order.kind==='attack'&&v.id===u.order.target)?.type??u.type].short);
   return text+(u.queue.length?` · в очереди: ${u.queue.length}`:'');
